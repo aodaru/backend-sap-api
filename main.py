@@ -8,10 +8,11 @@ Expone endpoints REST para automatizar transacciones SAP (ME12, VK12).
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
+from dependencies import verify_api_key
 
 
 @asynccontextmanager
@@ -55,12 +56,16 @@ app.add_middleware(
 
 
 @app.get("/api/health", tags=["General"])
-async def health_check():
+async def health_check(
+    _api_key: str = Depends(verify_api_key),
+):
     """
     Health check endpoint.
 
     Verifica que el servidor esté operativo.
     Retorna el estado del sistema y metadatos básicos.
+
+    Requiere autenticación via header X-API-Key.
     """
     return {
         "status": "ok",
@@ -71,11 +76,15 @@ async def health_check():
 
 
 @app.get("/", tags=["General"])
-async def root():
+async def root(
+    _api_key: str = Depends(verify_api_key),
+):
     """
     Endpoint raíz.
 
     Retorna información básica de la API.
+
+    Requiere autenticación via header X-API-Key.
     """
     return {
         "message": "Backend API - Automatización SAP",
