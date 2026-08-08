@@ -1,10 +1,12 @@
 """
 Modelos de respuesta de la API.
 
-Define los modelos Pydantic para respuestas de error estandarizadas.
+Define los modelos Pydantic para respuestas estandarizadas.
 """
 
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 
 class ErrorResponse(BaseModel):
@@ -16,3 +18,11 @@ class ErrorResponse(BaseModel):
     """
 
     detail: str
+
+
+class HealthResponse(BaseModel):
+    """Modelo de respuesta para health check."""
+
+    status: str = Field(..., description="Estado del servicio: ok o error")
+    message: str = Field(..., description="Descripción legible del estado")
+    timestamp: datetime = Field(..., description="Timestamp de la respuesta")
