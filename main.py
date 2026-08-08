@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
 from dependencies import verify_api_key
+from routers.health import router as health_router
 
 
 @asynccontextmanager
@@ -54,25 +55,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/api/health", tags=["General"])
-async def health_check(
-    _api_key: str = Depends(verify_api_key),
-):
-    """
-    Health check endpoint.
-
-    Verifica que el servidor esté operativo.
-    Retorna el estado del sistema y metadatos básicos.
-
-    Requiere autenticación via header X-API-Key.
-    """
-    return {
-        "status": "ok",
-        "service": "Backend API - Automatización SAP",
-        "version": "0.1.0",
-        "sap_system": settings.sap_system,
-    }
+# Incluir routers
+app.include_router(health_router, prefix="/api")
 
 
 @app.get("/", tags=["General"])
