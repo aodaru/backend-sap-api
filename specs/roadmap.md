@@ -4,22 +4,22 @@
 **Objetivo**: Establecer la estructura fundamental del backend con FastAPI.
 
 ### Tareas
-1. [ ] Configurar proyecto Python con virtualenv
-2. [ ] Instalar dependencias: fastapi, uvicorn, pydantic, python-multipart
-3. [ ] Crear estructura de directorios:
+1. [x] Configurar proyecto Python con virtualenv
+2. [x] Instalar dependencias: fastapi, uvicorn, pydantic, python-multipart
+3. [x] Crear estructura de directorios:
    - `routers/` (endpoints)
    - `services/` (lógica de negocio)
    - `models/` (Pydantic models)
    - `templates/` (archivos Excel)
    - `tests/` (pruebas)
-4. [ ] Crear `main.py` con FastAPI app básica
-5. [ ] Configurar variables de entorno (`.env.example`)
-6. [ ] Crear `config.py` para gestión de settings
+4. [x] Crear `main.py` con FastAPI app básica
+5. [x] Configurar variables de entorno (`.env.example`)
+6. [x] Crear `config.py` para gestión de settings
 
 ### Criterios de Aceptación
-- [ ] App FastAPI ejecuta sin errores
-- [ ] Estructura de directorios creada
-- [ ] Variables de entorno configuradas
+- [x] App FastAPI ejecuta sin errores
+- [x] Estructura de directorios creada
+- [x] Variables de entorno configuradas
 
 ---
 

@@ -1,14 +1,17 @@
 # Backend API - Automatización SAP
 
-Backend centralizado para ejecutar las apps de escritorio SAP
-ubicadas en `deskapp/` vía API REST, con autenticación por API Key.
+Backend centralizado para ejecutar flujos/scripts en SAP GUI mediante API REST, con autenticación por API Key.
 
-## Apps soportadas
+## Estado Actual
 
-| App | Transacción SAP | Descripción |
-|-----|----------------|-------------|
-| costosProveedorSap | ME12 | Modificación masiva de precios - Info Records de compra |
-| sapCondMassMod | VK12 | Modificación masiva de condiciones de precio |
+**Fase 1 completada**: Estructura base del proyecto con FastAPI.
+
+## Transacciones SAP Soportadas (Planeadas)
+
+| Transacción SAP | Descripción |
+|----------------|-------------|
+| ME12 | Modificación masiva de precios - Info Records de compra |
+| VK12 | Modificación masiva de condiciones de precio |
 
 ## Stack
 
@@ -18,90 +21,45 @@ ubicadas en `deskapp/` vía API REST, con autenticación por API Key.
 - **pytest** - Testing
 - **CORS** - Habilitado para frontends (Astro/Laravel)
 
-## Estructura
+## Estructura Actual (Fase 1)
 
 ```
 backendPy/
 ├── main.py                  # FastAPI app principal
 ├── config.py                # Settings, API keys, env
-├── dependencies.py          # Auth middleware (API key)
-├── routers/
-│   ├── costos.py            # Endpoints para ME12
-│   └── condiciones.py       # Endpoints para VK12
-├── services/
-│   ├── costos_service.py    # Lógica SAP para ME12
-│   └── condiciones_service.py # Lógica SAP para VK12
-├── models/
-│   ├── requests.py          # Pydantic models de entrada
-│   └── responses.py         # Pydantic models de salida
-├── templates/               # Excel templates (para download)
-├── tests/
-│   ├── conftest.py          # Fixtures compartidos
-│   ├── test_auth.py         # Validación API key
-│   ├── test_costos.py       # Endpoints ME12
-│   ├── test_condiciones.py  # Endpoints VK12
-│   ├── test_upload.py       # Upload + validación Excel
-│   └── test_health.py       # Health check
-├── .env.example
-└── requirements.txt
+├── requirements.txt         # Dependencias
+├── .env.example             # Variables de entorno ejemplo
+├── routers/                 # Endpoints (vacío - Fase 4/5)
+├── services/                # Lógica de negocio (vacío - Fase 4/5)
+├── models/                  # Pydantic models (vacío - Fase 4)
+├── templates/               # Excel templates (vacío - Fase 4)
+└── tests/
+    ├── conftest.py          # Fixtures compartidos
+    └── test_health.py       # Tests de health check
 ```
 
-## Endpoints
+## Endpoints Actuales
 
 ### General
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
+| GET | `/` | Root endpoint |
 | GET | `/api/health` | Health check |
 
-### Costos (ME12)
+### Endpoints Planeados (Fase 4-5)
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/costos/template` | Descargar template Excel |
-| POST | `/api/costos/upload` | Upload + validación Excel |
-| POST | `/api/costos/execute` | Ejecutar ME12 en SAP |
-| GET | `/api/costos/status/{job_id}` | Estado de ejecución |
+#### Costos (ME12)
+- `GET /api/costos/template` - Descargar template Excel
+- `POST /api/costos/upload` - Upload + validación Excel
+- `POST /api/costos/execute` - Ejecutar ME12 en SAP
+- `GET /api/costos/status/{job_id}` - Estado de ejecución
 
-### Condiciones (VK12)
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/condiciones/template` | Descargar template Excel |
-| POST | `/api/condiciones/upload` | Upload + validación Excel |
-| POST | `/api/condiciones/execute` | Ejecutar VK12 en SAP |
-| GET | `/api/condiciones/status/{job_id}` | Estado de ejecución |
-
-## Autenticación
-
-Todas las rutas `/api/*` requieren header `X-API-Key`:
-
-```
-X-API-Key: tu-api-key-aqui
-```
-
-Keys configuradas en `.env`:
-
-```
-API_KEYS=key1,key2,key3
-```
-
-Respuesta sin key o key inválida:
-
-```json
-{"detail": "API key inválida"}
-```
-
-## Flujo de uso
-
-```
-Frontend (Astro/Laravel)
-    │
-    ├─ GET  /api/costos/template     → descarga Excel template
-    ├─ POST /api/costos/upload       → envía Excel → {ok, rows, job_id}
-    ├─ POST /api/costos/execute      → {username, password} → ejecuta SAP
-    └─ GET  /api/costos/status       → polls estado
-```
+#### Condiciones (VK12)
+- `GET /api/condiciones/template` - Descargar template Excel
+- `POST /api/condiciones/upload` - Upload + validación Excel
+- `POST /api/condiciones/execute` - Ejecutar VK12 en SAP
+- `GET /api/condiciones/status/{job_id}` - Estado de ejecución
 
 ## Variables de entorno (.env)
 
@@ -109,13 +67,18 @@ Frontend (Astro/Laravel)
 # API Keys (separadas por coma)
 API_KEYS=mi-key-secreta
 
+# CORS (origins permitidos, separados por coma)
+CORS_ORIGINS=http://localhost:4321,http://localhost:8000
+
 # SAP
 SAP_SYSTEM=PRD
 SAP_MANDANT=100
 SAP_LANG=ES
 
-# Flask (para compatibilidad con web existente)
-FLASK_SECRET_KEY=change-me
+# Server
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8000
+DEBUG=true
 ```
 
 ## Instalación
@@ -146,26 +109,26 @@ pytest tests/ -v
 pytest tests/ -v --cov=.
 
 # Tests específicos
-pytest tests/test_auth.py -v
-pytest tests/test_costos.py -v
-pytest tests/test_condiciones.py -v
+pytest tests/test_health.py -v
 ```
 
-### Estrategia de tests
+## Roadmap
 
-| Capa | Qué se testea | Enfoque |
-|------|---------------|---------|
-| Auth | Rechazo sin key, key inválida, acepta key válida | TestClient + mock |
-| Upload | Archivo válido, formato incorrecto, vacío | Mock validators |
-| Execute | Login falla, SAP ocupado (409), ejecución OK | Mock SapClient |
-| Status | Retorna estado correcto | Mock estado |
-| Health | Responde 200 | Request simple |
+Ver `specs/roadmap.md` para detalles completos de las fases:
 
-Los tests NO tocan SAP real (todo mockeado).
+1. **Fase 1** ✅ - Estructura base del proyecto
+2. **Fase 2** - Sistema de autenticación
+3. **Fase 3** - Health check y endpoints básicos
+4. **Fase 4** - Endpoints para ME12 (Costos)
+5. **Fase 5** - Endpoints para VK12 (Condiciones)
+6. **Fase 6** - Sistema de cola de peticiones
+7. **Fase 7** - Logging y auditoría
+8. **Fase 8** - Testing y documentación
+9. **Fase 9** - Integración con frontends
 
 ## Notas técnicas
 
-- **Ejecución en Windows**: La lógica SAP usa `win32com` (solo Windows). El backend se ejecuta en la VM Windows con SAP GUI instalado.
-- **Un solo proceso SAP a la vez**: El endpoint execute retorna 409 si ya hay una ejecución en curso.
-- **Archivos temporales**: Se limpian automáticamente tras ejecución.
-- **Logs en tiempo real**: Se pueden agregar vía WebSocket (SocketIO) si el front lo necesita.
+- **Plataforma**: Windows obligatorio (SAP GUI requiere win32com)
+- **Concurrencia**: Un solo proceso SAP a la vez (Fase 6 implementará cola)
+- **Autenticación**: API Key via header `X-API-Key` (Fase 2)
+- **Frontend**: Se desarrollará por separado en Astro/Laravel
