@@ -23,20 +23,20 @@
 
 ---
 
-## Fase 2: Sistema de Autenticación
+## Fase 2: Sistema de Autenticación ✅
 **Objetivo**: Implementar autenticación por API Key.
 
 ### Tareas
-1. [ ] Crear `dependencies.py` con middleware de API Key
-2. [ ] Implementar validación de headers `X-API-Key`
-3. [ ] Configurar keys en variables de entorno
-4. [ ] Crear respuestas de error para key inválida
-5. [ ] Tests para autenticación
+1. [x] Crear `dependencies.py` con middleware de API Key
+2. [x] Implementar validación de headers `X-API-Key`
+3. [x] Configurar keys en variables de entorno
+4. [x] Crear respuestas de error para key inválida
+5. [x] Tests para autenticación
 
 ### Criterios de Aceptación
-- [ ] Endpoints requieren API Key
-- [ ] Respuesta 401 sin key o key inválida
-- [ ] Tests pasan para autenticación
+- [x] Endpoints requieren API Key
+- [x] Respuesta 401 sin key o key inválida
+- [x] Tests pasan para autenticación
 
 ---
 
