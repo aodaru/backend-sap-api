@@ -5,6 +5,7 @@ Gestiona variables de entorno y configuraciones del proyecto usando pydantic-set
 """
 
 from functools import lru_cache
+from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -40,14 +41,14 @@ class Settings(BaseSettings):
     debug: bool = False
 
     @property
-    def api_keys_list(self) -> list[str]:
+    def api_keys_list(self) -> List[str]:
         """Retorna la lista de API keys configuradas."""
         if not self.api_keys:
             return []
         return [key.strip() for key in self.api_keys.split(",") if key.strip()]
 
     @property
-    def cors_origins_list(self) -> list[str]:
+    def cors_origins_list(self) -> List[str]:
         """Retorna la lista de orígenes CORS permitidos."""
         if not self.cors_origins:
             return []
