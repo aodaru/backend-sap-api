@@ -7,6 +7,7 @@ Endpoints para gestionar la transacción SAP ME12
 
 import io
 import logging
+import time
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
@@ -26,6 +27,7 @@ from services.costos_service import (
     job_manager,
     validate_excel,
 )
+from services.logging_service import audit_logger
 
 logger = logging.getLogger(__name__)
 
@@ -172,9 +174,54 @@ async def execute_costos(
     job_id = job_manager.create_job()
 
     # Ejecutar en background (por ahora síncrono para MVP)
+    start_time = time.time()
     try:
         await execute_me12(rows_data, job_id)
+        duration = time.time() - start_time
+
+        # Registrar log de auditoría exitoso
+        audit_logger.log_execution(
+            job_id=job_id,
+            user_id="system",
+            transaction="ME12",
+            status="success",
+            duration=duration,
+            sap_login_success=True,
+            rows_total=len(rows_data),
+            rows_success=len(rows_data),
+            rows_failed=0,
+            errors=[],
+            metadata={
+                "filename": file.filename,
+            },
+        )
     except ValueError as e:
+        duration = time.time() - start_time
+
+        # Registrar log de auditoría con error
+        audit_logger.log_execution(
+            job_id=job_id,
+            user_id="system",
+            transaction="ME12",
+            status="error",
+            duration=duration,
+            sap_login_success=False,
+            rows_total=len(rows_data),
+            rows_success=0,
+            rows_failed=len(rows_data),
+            errors=[
+                {
+                    "row": 0,
+                    "material": "",
+                    "proveedor": "",
+                    "message": str(e),
+                }
+            ],
+            metadata={
+                "filename": file.filename,
+            },
+        )
+
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(e),

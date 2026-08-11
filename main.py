@@ -16,7 +16,9 @@ from dependencies import verify_api_key
 from routers.condiciones import router as condiciones_router
 from routers.costos import router as costos_router
 from routers.health import router as health_router
+from routers.logs import router as logs_router
 from routers.queue import router as queue_router
+from services.logging_service import audit_logger
 
 
 @asynccontextmanager
@@ -25,13 +27,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Gestiona el ciclo de vida de la aplicación.
 
     Se ejecuta al iniciar y al cerrar el servidor. Útil para
-    inicializar conexiones o limpiar recursos.
+    inicializar conexiones, limpiar recursos y gestionar logs.
     """
     # Startup
     settings = get_settings()
     print(f"🚀 Backend API iniciado - SAP System: {settings.sap_system}")
+
+    # Limpiar logs antiguos al iniciar
+    removed = audit_logger.cleanup_old_logs()
+    if removed > 0:
+        print(f"🗑️  Logs antiguos eliminados: {removed} archivos")
+
+    audit_logger.log_error(
+        context="startup",
+        message=f"Backend API iniciado - SAP System: {settings.sap_system}",
+    )
+
     yield
+
     # Shutdown
+    audit_logger.log_error(
+        context="shutdown",
+        message="Backend API cerrado",
+    )
     print("🛑 Backend API cerrado")
 
 
@@ -63,6 +81,7 @@ app.include_router(health_router, prefix="/api")
 app.include_router(costos_router, prefix="/api/costos")
 app.include_router(condiciones_router, prefix="/api/condiciones")
 app.include_router(queue_router, prefix="/api/queue")
+app.include_router(logs_router, prefix="/api/logs")
 
 
 @app.get("/", tags=["General"])

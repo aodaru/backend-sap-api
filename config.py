@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     max_queue_size: int = 5  # Máximo de peticiones en cola
     max_retries: int = 2  # Reintentos en errores transitorios
 
+    # Logging y Auditoría
+    log_dir: str = "logs"  # Directorio donde se almacenan los logs de auditoría
+    log_retention_days: int = 90  # Días de retención de archivos de log
+    log_max_file_size_mb: int = 10  # Tamaño máximo por archivo de log (MB)
+    log_level: str = "audit"  # Nivel de log por defecto (audit, info, error)
+
     @property
     def api_keys_list(self) -> List[str]:
         """Retorna la lista de API keys configuradas."""
