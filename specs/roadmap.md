@@ -152,6 +152,7 @@
 - [ ] Cobertura mínima del 80%
 - [ ] Documentación API completa y actualizada
 
+> **Spec**: `specs/2026-08-11-testing-y-documentacion/` — Testing y Documentación (pytest, Swagger UI, GitHub Actions)
 ---
 
 ## Fase 9: Integración con Frontends
