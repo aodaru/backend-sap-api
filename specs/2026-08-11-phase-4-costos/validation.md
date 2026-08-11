@@ -61,8 +61,8 @@ pytest tests/ -v
 
 ## Definition of Done
 
-- [ ] Todos los tests automatizados pasan
-- [ ] Manual validation completa sin errores
-- [ ] Swagger UI muestra endpoints correctamente
-- [ ] Sin errores en logs del servidor
+- [x] Todos los tests automatizados pasan (25 tests)
+- [x] Manual validation completa sin errores
+- [x] Swagger UI muestra endpoints correctamente
+- [x] Sin errores en logs del servidor
 - [ ] Code review completado
