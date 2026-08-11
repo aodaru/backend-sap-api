@@ -37,6 +37,8 @@ class JobStatus(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    QUEUED = "queued"
+    CANCELLED = "cancelled"
 
 
 class ValidationDetail(BaseModel):

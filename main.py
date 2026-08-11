@@ -16,6 +16,7 @@ from dependencies import verify_api_key
 from routers.condiciones import router as condiciones_router
 from routers.costos import router as costos_router
 from routers.health import router as health_router
+from routers.queue import router as queue_router
 
 
 @asynccontextmanager
@@ -61,6 +62,7 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api")
 app.include_router(costos_router, prefix="/api/costos")
 app.include_router(condiciones_router, prefix="/api/condiciones")
+app.include_router(queue_router, prefix="/api/queue")
 
 
 @app.get("/", tags=["General"])

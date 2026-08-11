@@ -186,11 +186,17 @@ async def execute_condiciones(
     job_id = job_manager.create_job()
 
     # Ejecutar en background (por ahora síncrono para MVP)
-    await execute_vk12(
-        rows_data,
-        job_id,
-        credentials=parsed_credentials.model_dump(),
-    )
+    try:
+        await execute_vk12(
+            rows_data,
+            job_id,
+            credentials=parsed_credentials.model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(e),
+        )
 
     return CondicionesExecuteResponse(
         job_id=job_id,

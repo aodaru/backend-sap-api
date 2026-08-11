@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     server_port: int = 8000
     debug: bool = False
 
+    # Cola de peticiones SAP
+    sap_execution_timeout: int = 120  # Timeout en segundos por ejecución
+    max_queue_size: int = 5  # Máximo de peticiones en cola
+    max_retries: int = 2  # Reintentos en errores transitorios
+
     @property
     def api_keys_list(self) -> List[str]:
         """Retorna la lista de API keys configuradas."""
