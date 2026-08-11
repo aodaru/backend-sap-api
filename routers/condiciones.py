@@ -8,6 +8,7 @@ Endpoints para gestionar la transacción SAP VK12
 import io
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -27,6 +28,7 @@ from services.condiciones_service import (
     validate_excel,
 )
 from services.costos_service import job_manager
+from services.logging_service import audit_logger
 
 logger = logging.getLogger(__name__)
 
@@ -186,13 +188,62 @@ async def execute_condiciones(
     job_id = job_manager.create_job()
 
     # Ejecutar en background (por ahora síncrono para MVP)
+    start_time = time.time()
     try:
         await execute_vk12(
             rows_data,
             job_id,
             credentials=parsed_credentials.model_dump(),
         )
+        duration = time.time() - start_time
+
+        # Registrar log de auditoría exitoso
+        audit_logger.log_execution(
+            job_id=job_id,
+            user_id=parsed_credentials.username,
+            transaction="VK12",
+            status="success",
+            duration=duration,
+            sap_login_success=True,
+            rows_total=len(rows_data),
+            rows_success=len(rows_data),
+            rows_failed=0,
+            errors=[],
+            metadata={
+                "filename": file.filename,
+                "sap_system": parsed_credentials.system,
+                "sap_mandt": parsed_credentials.mandt,
+            },
+        )
     except ValueError as e:
+        duration = time.time() - start_time
+
+        # Registrar log de auditoría con error
+        audit_logger.log_execution(
+            job_id=job_id,
+            user_id=parsed_credentials.username,
+            transaction="VK12",
+            status="error",
+            duration=duration,
+            sap_login_success=False,
+            rows_total=len(rows_data),
+            rows_success=0,
+            rows_failed=len(rows_data),
+            errors=[
+                {
+                    "row": 0,
+                    "material": "",
+                    "proveedor": "N/A",
+                    "message": str(e),
+                }
+            ],
+            metadata={
+                "filename": file.filename,
+                "sap_system": parsed_credentials.system,
+                "sap_mandt": parsed_credentials.mandt,
+            },
+        )
+
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(e),

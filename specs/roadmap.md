@@ -118,20 +118,22 @@
 
 > **Spec**: `specs/2026-08-11-request-queue/` — Sistema de Cola de Peticiones (en memoria, max 5, cancelable)
 
-## Fase 7: Logging y Auditoría
+## Fase 7: Logging y Auditoría ✅
 **Objetivo**: Implementar sistema de logs para auditoría.
 
 ### Tareas
-1. [ ] Configurar logging estructurado (JSON)
-2. [ ] Implementar logs de auditoría para cada ejecución
-3. [ ] Crear endpoint para consultar logs (opcional)
-4. [ ] Implementar rotación de logs
-5. [ ] Tests para sistema de logs
+1. [x] Configurar logging estructurado (JSON)
+2. [x] Implementar logs de auditoría para cada ejecución
+3. [x] Crear endpoint para consultar logs (opcional)
+4. [x] Implementar rotación de logs
+5. [x] Tests para sistema de logs
 
 ### Criterios de Aceptación
-- [ ] Cada ejecución genera log de auditoría
-- [ ] Logs incluyen: timestamp, usuario, transacción, resultado
-- [ ] Logs se almacenan de forma persistente
+- [x] Cada ejecución genera log de auditoría
+- [x] Logs incluyen: timestamp, usuario, transacción, resultado
+- [x] Logs se almacenan de forma persistente
+
+> **Spec**: `specs/2026-08-11-logging-auditoria/` — Sistema de Logging y Auditoría (JSON rotativo, 90 días retención)
 
 ---
 
