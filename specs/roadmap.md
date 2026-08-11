@@ -80,22 +80,22 @@
 
 ---
 
-## Fase 5: Endpoints para VK12 (Condiciones)
+## Fase 5: Endpoints para VK12 (Condiciones) ✅
 **Objetivo**: Implementar endpoints para transacción VK12.
 
 ### Tareas
-1. [ ] Crear `routers/condiciones.py` con endpoints:
+1. [x] Crear `routers/condiciones.py` con endpoints:
    - `GET /api/condiciones/template`
    - `POST /api/condiciones/upload`
    - `POST /api/condiciones/execute`
    - `GET /api/condiciones/status/{job_id}`
-2. [ ] Crear `services/condiciones_service.py`
-3. [ ] Implementar lógica específica VK12
-4. [ ] Tests para endpoints VK12
+2. [x] Crear `services/condiciones_service.py`
+3. [x] Implementar lógica específica VK12
+4. [x] Tests para endpoints VK12
 
 ### Criterios de Aceptación
-- [ ] Endpoints VK12 funcionan similar a ME12
-- [ ] Tests pasan para VK12
+- [x] Endpoints VK12 funcionan similar a ME12
+- [x] Tests pasan para VK12
 
 ---
 

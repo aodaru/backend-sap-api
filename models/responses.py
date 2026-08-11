@@ -75,3 +75,46 @@ class CostosStatusResponse(BaseModel):
     results: Optional[Dict[str, Any]] = Field(
         default=None, description="Resultados cuando el job completa"
     )
+
+
+# --- Modelos para VK12 Condiciones ---
+
+
+class CondicionesUploadResponse(BaseModel):
+    """Modelo de respuesta para upload de condiciones."""
+
+    filename: str = Field(..., description="Nombre del archivo subido")
+    row_count: int = Field(..., description="Número de filas procesadas")
+    valid: bool = Field(..., description="Si el archivo es válido")
+    validations: List[ValidationDetail] = Field(
+        default_factory=list, description="Detalles de errores de validación"
+    )
+
+
+class CondicionesExecuteRequest(BaseModel):
+    """Modelo de request para ejecución de VK12 con credenciales SAP."""
+
+    system: str = Field(..., description="Sistema SAP (ej: ERQ)")
+    mandt: str = Field(..., description="Cliente SAP (ej: 200)")
+    username: str = Field(..., description="Usuario SAP")
+    password: str = Field(..., description="Contraseña SAP")
+    language: str = Field(default="ES", description="Idioma SAP (ej: ES)")
+
+
+class CondicionesExecuteResponse(BaseModel):
+    """Modelo de respuesta para ejecución de VK12."""
+
+    job_id: str = Field(..., description="ID del job creado")
+    status: JobStatus = Field(..., description="Estado inicial del job")
+    message: str = Field(..., description="Mensaje descriptivo")
+
+
+class CondicionesStatusResponse(BaseModel):
+    """Modelo de respuesta para estado de job de condiciones."""
+
+    job_id: str = Field(..., description="ID del job")
+    status: JobStatus = Field(..., description="Estado del job")
+    progress: int = Field(..., description="Progreso del 0 al 100")
+    results: Optional[Dict[str, Any]] = Field(
+        default=None, description="Resultados cuando el job completa"
+    )

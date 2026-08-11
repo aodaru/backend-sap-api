@@ -169,3 +169,135 @@ def invalid_excel_file_bad_types() -> Generator[io.BytesIO, None, None]:
     buffer.name = "test_bad_types.xlsx"
 
     yield buffer
+
+
+# --- Fixtures para Condiciones VK12 ---
+
+
+@pytest.fixture
+def valid_condiciones_excel() -> Generator[io.BytesIO, None, None]:
+    """
+    Fixture que retorna un archivo Excel válido para condiciones VK12.
+
+    Incluye datos válidos para el flujo mat_orgvent_candistr.
+
+    Returns:
+        Generator con buffer BytesIO conteniendo un Excel válido.
+    """
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "VK12 Condiciones"
+
+    headers = [
+        "MATERIAL", "UNIDAD_DE_MEDIDA", "IMPORTE", "GRUPO_ARTICULO",
+        "ORG_VENTA", "CAN_DISTR", "SECTOR", "RAMO", "TIPO_MODIFICACION",
+    ]
+    ws.append(headers)
+
+    # Fila válida - flujo mat_orgvent_candistr
+    ws.append([
+        "12345678", "UN", 100.50, "123456789",
+        "1000", "10", "10", "ZDET", "mat_orgvent_candistr",
+    ])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    buffer.name = "test_condiciones_valid.xlsx"
+
+    yield buffer
+
+
+@pytest.fixture
+def invalid_condiciones_excel_missing_columns() -> Generator[io.BytesIO, None, None]:
+    """
+    Fixture que retorna un Excel inválido (columnas faltantes) para condiciones.
+
+    Returns:
+        Generator con buffer BytesIO conteniendo un Excel inválido.
+    """
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "VK12 Condiciones"
+
+    # Solo algunas columnas (faltan varias)
+    ws.append(["MATERIAL", "IMPORTE"])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    buffer.name = "test_condiciones_invalid.xlsx"
+
+    yield buffer
+
+
+@pytest.fixture
+def invalid_condiciones_excel_bad_flow() -> Generator[io.BytesIO, None, None]:
+    """
+    Fixture que retorna un Excel con flujo inválido para condiciones.
+
+    Returns:
+        Generator con buffer BytesIO conteniendo un Excel con flujo inválido.
+    """
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "VK12 Condiciones"
+
+    headers = [
+        "MATERIAL", "UNIDAD_DE_MEDIDA", "IMPORTE", "GRUPO_ARTICULO",
+        "ORG_VENTA", "CAN_DISTR", "SECTOR", "RAMO", "TIPO_MODIFICACION",
+    ]
+    ws.append(headers)
+
+    # Fila con flujo inválido
+    ws.append([
+        "12345678", "UN", 100.50, "123456789",
+        "1000", "10", "10", "ZDET", "flujo_inexistente",
+    ])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    buffer.name = "test_condiciones_bad_flow.xlsx"
+
+    yield buffer
+
+
+@pytest.fixture
+def invalid_condiciones_excel_bad_types() -> Generator[io.BytesIO, None, None]:
+    """
+    Fixture que retorna un Excel con tipos incorrectos para condiciones.
+
+    Returns:
+        Generator con buffer BytesIO conteniendo un Excel con errores de tipo.
+    """
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "VK12 Condiciones"
+
+    headers = [
+        "MATERIAL", "UNIDAD_DE_MEDIDA", "IMPORTE", "GRUPO_ARTICULO",
+        "ORG_VENTA", "CAN_DISTR", "SECTOR", "RAMO", "TIPO_MODIFICACION",
+    ]
+    ws.append(headers)
+
+    # Fila con IMPORTE no numérico
+    ws.append([
+        "12345678", "UN", "no_es_numero", "123456789",
+        "1000", "10", "10", "ZDET", "mat_orgvent_candistr",
+    ])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    buffer.name = "test_condiciones_bad_types.xlsx"
+
+    yield buffer
