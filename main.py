@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
 from dependencies import verify_api_key
+from routers.condiciones import router as condiciones_router
 from routers.costos import router as costos_router
 from routers.health import router as health_router
 
@@ -59,6 +60,7 @@ app.add_middleware(
 # Incluir routers
 app.include_router(health_router, prefix="/api")
 app.include_router(costos_router, prefix="/api/costos")
+app.include_router(condiciones_router, prefix="/api/condiciones")
 
 
 @app.get("/", tags=["General"])
