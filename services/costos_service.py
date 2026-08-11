@@ -177,6 +177,11 @@ async def execute_me12(
     En producción, esta función interactuaría con SAP GUI via win32com.
     En tests, se puede mockear esta función.
 
+    La ejecución pasa por el sistema de cola de peticiones:
+    1. Se encola la petición
+    2. Se espera turno
+    3. Se ejecuta con reintentos automáticos
+
     Args:
         file_data: Lista de diccionarios con los datos del Excel.
         job_id: ID del job en ejecución.
@@ -184,24 +189,82 @@ async def execute_me12(
     Returns:
         Diccionario con los resultados de la ejecución.
     """
+    from services.queue_service import request_queue
+
+    # Encolar la petición
+    try:
+        await request_queue.enqueue(
+            job_id=job_id,
+            transaction="ME12",
+            user_id="system",
+        )
+    except ValueError:
+        # Cola llena - propagar error
+        job_manager.update_job(
+            job_id,
+            JobStatus.FAILED,
+            progress=0,
+            results={"message": "Cola de peticiones llena"},
+        )
+        raise
+
+    # Marcar como procesando
     job_manager.update_job(job_id, JobStatus.PROCESSING, progress=10)
 
-    # TODO: Implementar integración real con SAP GUI
-    # Por ahora retorna mock de éxito
-    job_manager.update_job(
-        job_id,
-        JobStatus.COMPLETED,
-        progress=100,
-        results={
+    # Desencolar para procesar
+    await request_queue.dequeue()
+
+    # Función interna de ejecución
+    async def _execute_sap() -> Dict[str, Any]:
+        """Ejecuta la transacción SAP ME12."""
+        # TODO: Implementar integración real con SAP GUI
+        # Por ahora retorna mock de éxito
+        return {
             "processed": len(file_data),
             "successful": len(file_data),
             "failed": 0,
             "message": "ME12 ejecutado exitosamente",
-        },
-    )
+        }
 
-    return {
-        "processed": len(file_data),
-        "successful": len(file_data),
-        "failed": 0,
-    }
+    try:
+        # Ejecutar con reintentos
+        results = await request_queue.process_with_retries(
+            job_id, _execute_sap
+        )
+
+        # Marcar como completada en la cola
+        await request_queue.mark_completed(job_id, results)
+
+        # Actualizar job manager
+        job_manager.update_job(
+            job_id,
+            JobStatus.COMPLETED,
+            progress=100,
+            results={
+                "processed": len(file_data),
+                "successful": len(file_data),
+                "failed": 0,
+                "message": results.get("message", "ME12 ejecutado exitosamente"),
+            },
+        )
+
+        return {
+            "processed": len(file_data),
+            "successful": len(file_data),
+            "failed": 0,
+        }
+
+    except Exception as e:
+        # Marcar como fallida en la cola
+        error_msg = str(e)
+        await request_queue.mark_failed(job_id, error_msg)
+
+        # Actualizar job manager
+        job_manager.update_job(
+            job_id,
+            JobStatus.FAILED,
+            progress=0,
+            results={"message": error_msg},
+        )
+
+        raise

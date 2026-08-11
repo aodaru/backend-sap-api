@@ -99,22 +99,24 @@
 
 ---
 
-## Fase 6: Sistema de Cola de Peticiones
+## Fase 6: Sistema de Cola de Peticiones ✅
 **Objetivo**: Manejar concurrencia con cola de peticiones.
 
 ### Tareas
-1. [ ] Diseñar sistema de queue para peticiones
-2. [ ] Implementar notificación al usuario cuando SAP está ocupado
-3. [ ] Crear lógica de reintentos automáticos
-4. [ ] Implementar timeout para peticiones
-5. [ ] Tests para sistema de cola
+1. [x] Diseñar sistema de queue para peticiones
+2. [x] Implementar notificación al usuario cuando SAP está ocupado
+3. [x] Crear lógica de reintentos automáticos
+4. [x] Implementar timeout para peticiones
+5. [x] Tests para sistema de cola
 
 ### Criterios de Aceptación
-- [ ] Múltiples peticiones se encolan correctamente
-- [ ] Usuario recibe notificación de espera
-- [ ] Sistema maneja timeouts adecuadamente
+- [x] Múltiples peticiones se encolan correctamente
+- [x] Usuario recibe notificación de espera
+- [x] Sistema maneja timeouts adecuadamente
 
 ---
+
+> **Spec**: `specs/2026-08-11-request-queue/` — Sistema de Cola de Peticiones (en memoria, max 5, cancelable)
 
 ## Fase 7: Logging y Auditoría
 **Objetivo**: Implementar sistema de logs para auditoría.
@@ -170,3 +172,4 @@
 - **Prioridad**: Fases 1-4 son críticas para MVP; fases 5-9 son mejoras incrementales
 - **Flexibilidad**: El orden puede ajustarse según necesidades urgentes
 - **Scope creep**: Mantener cada fase enfocada y acotada
+

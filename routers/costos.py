@@ -172,7 +172,13 @@ async def execute_costos(
     job_id = job_manager.create_job()
 
     # Ejecutar en background (por ahora síncrono para MVP)
-    await execute_me12(rows_data, job_id)
+    try:
+        await execute_me12(rows_data, job_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(e),
+        )
 
     return CostosExecuteResponse(
         job_id=job_id,
