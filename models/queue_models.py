@@ -5,7 +5,7 @@ Define los modelos Pydantic para la cola de peticiones SAP,
 incluyendo estados, peticiones en cola y estadísticas.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -41,7 +41,7 @@ class QueueRequest(BaseModel):
         default=0, description="Posición en la cola (0 si no está en cola)"
     )
     queued_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp de cuando se encoló",
     )
     started_at: Optional[datetime] = Field(

@@ -14,7 +14,7 @@ Características:
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 
 from config import get_settings
@@ -96,7 +96,7 @@ class RequestQueue:
                 transaction=transaction,
                 status=QueueJobStatus.QUEUED,
                 position=position,
-                queued_at=datetime.utcnow(),
+                queued_at=datetime.now(timezone.utc),
                 user_id=user_id,
             )
 
@@ -124,7 +124,7 @@ class RequestQueue:
             for i, request in enumerate(self._queue):
                 if request.status == QueueJobStatus.QUEUED:
                     request.status = QueueJobStatus.PROCESSING
-                    request.started_at = datetime.utcnow()
+                    request.started_at = datetime.now(timezone.utc)
                     request.position = 0
 
                     # Actualizar posiciones de las demás peticiones
@@ -167,7 +167,7 @@ class RequestQueue:
                         return False
 
                     request.status = QueueJobStatus.CANCELLED
-                    request.completed_at = datetime.utcnow()
+                    request.completed_at = datetime.now(timezone.utc)
                     request.position = 0
 
                     # Remover de la cola activa
@@ -301,7 +301,7 @@ class RequestQueue:
 
             if job_id in self._history:
                 self._history[job_id].status = QueueJobStatus.COMPLETED
-                self._history[job_id].completed_at = datetime.utcnow()
+                self._history[job_id].completed_at = datetime.now(timezone.utc)
                 self._history[job_id].position = 0
 
             self._update_positions()
@@ -324,7 +324,7 @@ class RequestQueue:
 
             if job_id in self._history:
                 self._history[job_id].status = QueueJobStatus.FAILED
-                self._history[job_id].completed_at = datetime.utcnow()
+                self._history[job_id].completed_at = datetime.now(timezone.utc)
                 self._history[job_id].error_message = error_message
                 self._history[job_id].position = 0
 

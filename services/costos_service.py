@@ -6,7 +6,7 @@ Implementa la lógica de negocio para la transacción SAP ME12
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -44,7 +44,7 @@ class JobManager:
             "status": JobStatus.PENDING,
             "progress": 0,
             "results": None,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         return job_id
 
