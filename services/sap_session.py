@@ -7,7 +7,7 @@ módulo puede importarse y probarse en Linux/CI sin SAP instalado.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol
 
 from services.sap_errors import (
     SapConnectionError,
@@ -29,7 +29,7 @@ class SapSession(Protocol):
 class SapSessionProvider(Protocol):
     """Obtiene una sesión ya abierta, nunca crea sesiones concurrentes."""
 
-    def acquire(self, credentials: Mapping[str, str] | None = None) -> Any: ...
+    def acquire(self, credentials: Optional[Mapping[str, str]] = None) -> Any: ...
 
     def release(self, session: Any) -> None: ...
 
@@ -41,11 +41,11 @@ class Win32ComSapSessionProvider:
     proveedor solo inspecciona conexiones/sesiones ya abiertas.
     """
 
-    def __init__(self, connection_name: str | None = None, session_index: int = 0) -> None:
+    def __init__(self, connection_name: Optional[str] = None, session_index: int = 0) -> None:
         self.connection_name = connection_name
         self.session_index = session_index
 
-    def acquire(self, credentials: Mapping[str, str] | None = None) -> Any:
+    def acquire(self, credentials: Optional[Mapping[str, str]] = None) -> Any:
         del credentials  # Nunca se conserva ni se registra.
         try:
             import win32com.client  # type: ignore[import-not-found]
@@ -87,7 +87,7 @@ class Win32ComSapSessionProvider:
 class NullSapSessionProvider:
     """Proveedor no operativo: nunca simula una ejecución SAP exitosa."""
 
-    def acquire(self, credentials: Mapping[str, str] | None = None) -> Any:
+    def acquire(self, credentials: Optional[Mapping[str, str]] = None) -> Any:
         del credentials
         raise SapIntegrationDisabledError()
 

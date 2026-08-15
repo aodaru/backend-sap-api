@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Optional
 
 from config import get_settings
 from services.sap_adapters import TransactionResult, select_adapter
@@ -22,7 +22,7 @@ from services.sap_session import NullSapSessionProvider, SapSessionProvider, Win
 class SapTransactionExecutor:
     """Serializa todas las transacciones sobre una única sesión SAP."""
 
-    def __init__(self, provider: SapSessionProvider | None = None) -> None:
+    def __init__(self, provider: Optional[SapSessionProvider] = None) -> None:
         settings = get_settings()
         self._lock = asyncio.Lock()
         self._provider = provider or (
@@ -34,7 +34,7 @@ class SapTransactionExecutor:
         self,
         transaction: str,
         rows: Sequence[Mapping[str, Any]],
-        credentials: Mapping[str, str] | None = None,
+        credentials: Optional[Mapping[str, str]] = None,
     ) -> TransactionResult:
         """Ejecuta un job con un solo worker y borra referencias a credenciales."""
         adapter = select_adapter(transaction)

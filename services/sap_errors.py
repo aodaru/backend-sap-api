@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Dict, Optional, Tuple
+
 
 class SapIntegrationError(Exception):
     """Error seguro para devolver y auditar una operación SAP."""
@@ -10,7 +12,7 @@ class SapIntegrationError(Exception):
     retryable = False
     public_message = "No se pudo completar la operación SAP"
 
-    def __init__(self, message: str | None = None) -> None:
+    def __init__(self, message: Optional[str] = None) -> None:
         super().__init__(message or self.public_message)
         self.message = message or self.public_message
 
@@ -102,7 +104,7 @@ OPERATIONAL_CODES = frozenset(
     }
 )
 
-PUBLIC_ERRORS: dict[str, tuple[str, int]] = {
+PUBLIC_ERRORS: Dict[str, Tuple[str, int]] = {
     "sap_error": ("No se pudo completar la operación SAP", 503),
     "integration_disabled": (SapIntegrationDisabledError.public_message, 503),
     "scripting_unavailable": (SapScriptingUnavailableError.public_message, 503),
@@ -120,7 +122,7 @@ PUBLIC_ERRORS: dict[str, tuple[str, int]] = {
 }
 
 
-def public_error(error: Exception) -> tuple[str, int]:
+def public_error(error: Exception) -> Tuple[str, int]:
     """Convierte cualquier excepción en mensaje/status seguros para HTTP."""
     code = getattr(error, "code", "sap_error")
     if code not in OPERATIONAL_CODES:
@@ -137,7 +139,7 @@ def safe_exception(error: Exception) -> Exception:
         return SapIntegrationError()
 
 
-def operational_context(error: Exception) -> dict[str, object]:
+def operational_context(error: Exception) -> Dict[str, object]:
     """Devuelve únicamente contexto fijo y no sensible para auditoría."""
     code = getattr(error, "code", "sap_error")
     if code not in OPERATIONAL_CODES:

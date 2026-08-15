@@ -9,6 +9,7 @@ import io
 import json
 import logging
 import time
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Condiciones"])
 
 
-def _safe_filename(filename: str | None) -> str:
+def _safe_filename(filename: Optional[str]) -> str:
     """Reduce el nombre multipart a basename, sin conservar rutas del cliente."""
     return (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
 
