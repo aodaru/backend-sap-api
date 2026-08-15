@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 from services.sap_errors import (
     SapConnectionError,
+    SapIntegrationDisabledError,
     SapScriptingUnavailableError,
     SapSessionUnavailableError,
 )
@@ -78,11 +79,11 @@ class Win32ComSapSessionProvider:
 
 
 class NullSapSessionProvider:
-    """Proveedor usado explícitamente en tests y modo simulado."""
+    """Proveedor no operativo: nunca simula una ejecución SAP exitosa."""
 
     def acquire(self, credentials: Mapping[str, str] | None = None) -> Any:
         del credentials
-        return None
+        raise SapIntegrationDisabledError()
 
     def release(self, session: Any) -> None:
         del session

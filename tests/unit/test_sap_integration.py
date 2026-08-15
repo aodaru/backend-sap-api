@@ -10,6 +10,7 @@ from services.sap_adapters import Me12Adapter, Vk12Adapter, select_adapter
 from services.sap_errors import SapBusinessError, SapScriptingUnavailableError
 from services.sap_executor import SapTransactionExecutor
 from services.sap_session import Win32ComSapSessionProvider
+from services.sap_session import NullSapSessionProvider
 from fastapi.testclient import TestClient
 from main import app
 from tests.frontend_client import download_template
@@ -109,7 +110,7 @@ async def test_connection_and_authentication_failure_matrix_has_strict_retries(m
 
     monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("S", (), {
         "max_retries": 1, "sap_execution_timeout": 1, "sap_retry_backoff": 0,
-        "sap_integration_enabled": False,
+        "sap_integration_enabled": True,
     })())
     for error, expected_calls in ((SapConnectionError(), 2), (SapAuthenticationError(), 1)):
         provider = Provider(error)
@@ -124,11 +125,13 @@ async def test_executor_serializes_both_transactions_and_releases_session(monkey
     executor = SapTransactionExecutor(provider)
     monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("S", (), {
         "max_retries": 0, "sap_execution_timeout": 2, "sap_retry_backoff": 1,
+        "sap_integration_enabled": True,
     })())
 
     async def run(transaction):
         rows = [{"Org_Compras": "1000"}] if transaction == "ME12" else []
-        return await executor.execute(transaction, rows)
+        credentials = {"mandt": "300"} if transaction == "VK12" else None
+        return await executor.execute(transaction, rows, credentials)
 
     await asyncio.gather(run("ME12"), run("VK12"))
     assert provider.max_active == 1
@@ -138,6 +141,96 @@ async def test_executor_serializes_both_transactions_and_releases_session(monkey
 def test_win32com_is_optional_and_never_imported_at_module_import():
     with pytest.raises(SapScriptingUnavailableError):
         Win32ComSapSessionProvider().acquire()
+
+
+@pytest.mark.asyncio
+async def test_disabled_integration_never_returns_success_or_navigates(monkeypatch):
+    """Regresión del 200 sin acción: el proveedor nulo debe fallar explícitamente."""
+    monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("S", (), {
+        "max_retries": 0, "sap_execution_timeout": 1, "sap_retry_backoff": 0,
+        "sap_integration_enabled": False,
+    })())
+    with pytest.raises(Exception) as error:
+        await SapTransactionExecutor(NullSapSessionProvider()).execute("ME12", [{"Org_Compras": "1000"}])
+    assert getattr(error.value, "code", "") == "integration_disabled"
+
+
+@pytest.mark.sap_integration_disabled
+def test_http_disabled_integration_returns_503_failed_job_without_success_audit(
+    valid_excel_file, monkeypatch
+):
+    """El contrato HTTP conserva el fallo desde router hasta el job y la auditoría."""
+    from services.costos_service import job_manager
+    from services.logging_service import audit_logger
+
+    monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("S", (), {
+        "sap_integration_enabled": False,
+        "max_retries": 0,
+        "sap_execution_timeout": 1,
+        "sap_retry_backoff": 0,
+    })())
+    before = set(job_manager._jobs)
+    response = TestClient(app).post(
+        "/api/costos/execute",
+        headers={"X-API-Key": "mi-api-key-secreta"},
+        files={"file": ("disabled.xlsx", valid_excel_file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "La integración real con SAP GUI no está habilitada"
+    job_id = (set(job_manager._jobs) - before).pop()
+    status = TestClient(app).get(
+        f"/api/costos/status/{job_id}",
+        headers={"X-API-Key": "mi-api-key-secreta"},
+    )
+    assert status.status_code == 200
+    assert status.json()["status"] == "failed"
+    entries = audit_logger.get_logs_by_job_id(job_id)
+    assert entries
+    assert all(entry.status != "success" for entry in entries)
+
+
+def test_http_end_to_end_router_queue_worker_executor_adapter_with_fake_provider(
+    valid_excel_file, monkeypatch
+):
+    """Prueba el recorrido completo sin conectar con SAP real."""
+    from services.sap_executor import SapTransactionExecutor
+
+    class RecordingSession:
+        def __init__(self):
+            self.calls = []
+
+        def execute_transaction(self, transaction, row):
+            self.calls.append((transaction, row))
+
+    class RecordingProvider:
+        def __init__(self):
+            self.session = RecordingSession()
+
+        def acquire(self, credentials=None):
+            return self.session
+
+        def release(self, session):
+            pass
+
+    provider = RecordingProvider()
+    monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("S", (), {
+        "sap_integration_enabled": True,
+        "max_retries": 0,
+        "sap_execution_timeout": 1,
+        "sap_retry_backoff": 0,
+    })())
+    monkeypatch.setattr("services.sap_executor.sap_executor", SapTransactionExecutor(provider))
+
+    response = TestClient(app).post(
+        "/api/costos/execute",
+        headers={"X-API-Key": "mi-api-key-secreta"},
+        files={"file": ("e2e.xlsx", valid_excel_file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert response.status_code == 202
+    assert response.json()["status"] == "completed"
+    assert provider.session.calls[0][0] == "ME12"
+    assert provider.session.calls[0][1]["EKORG"] == "1000"
 
 
 @pytest.mark.parametrize(
@@ -213,7 +306,7 @@ async def test_retry_backoff_timeout_and_release(monkeypatch):
     executor = SapTransactionExecutor(provider)
     monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("S", (), {
         "max_retries": 1, "sap_execution_timeout": 1, "sap_retry_backoff": 3,
-        "sap_integration_enabled": False,
+        "sap_integration_enabled": True,
     })())
     sleeps = []
     async def fake_sleep(seconds):
@@ -242,7 +335,7 @@ async def test_execution_timeout_releases_and_business_error_is_not_retried(monk
     executor = SapTransactionExecutor(provider)
     monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("S", (), {
         "max_retries": 1, "sap_execution_timeout": 0.01, "sap_retry_backoff": 1,
-        "sap_integration_enabled": False,
+        "sap_integration_enabled": True,
     })())
     class SlowAdapter:
         async def execute(self, session, rows):
@@ -259,7 +352,7 @@ async def test_execution_timeout_releases_and_business_error_is_not_retried(monk
             raise SapBusinessError("sensitive SAP text")
     monkeypatch.setattr("services.sap_executor.select_adapter", lambda transaction: BusinessAdapter())
     with pytest.raises(SapBusinessError):
-        await executor.execute("VK12", [])
+        await executor.execute("VK12", [], {"mandt": "300"})
     assert len(calls) == 1
 
 
@@ -296,7 +389,7 @@ async def test_vk12_secret_is_absent_from_status_audit_and_exception(monkeypatch
     from services.logging_service import AuditLogger
     from services.sap_errors import SapAuthenticationError
     secret = "super-secret-password"
-    payload = {"system": "ERQ", "mandt": "200", "username": "u", "password": secret, "language": "ES"}
+    payload = {"system": "ERQ", "mandt": "300", "username": "u", "password": secret, "language": "ES"}
 
     async def fail(*args, **kwargs):
         assert args[2].get("password") == secret

@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # SAP Configuration
     sap_system: str = "PRD"
-    sap_mandant: str = "100"
+    sap_mandant: str = "300"
     sap_lang: str = "ES"
     sap_connection_name: str = ""
     sap_session_index: int = 0

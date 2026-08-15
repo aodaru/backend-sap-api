@@ -98,7 +98,7 @@ class CondicionesExecuteRequest(BaseModel):
     """Modelo de request para ejecución de VK12 con credenciales SAP."""
 
     system: str = Field(..., description="Sistema SAP (ej: ERQ)")
-    mandt: str = Field(..., description="Cliente SAP (ej: 200)")
+    mandt: str = Field(..., description="Cliente SAP para VK12 (ej: 300)")
     username: str = Field(..., description="Usuario SAP")
     password: str = Field(..., description="Contraseña SAP")
     language: str = Field(default="ES", description="Idioma SAP (ej: ES)")

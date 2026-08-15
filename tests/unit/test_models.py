@@ -264,13 +264,13 @@ class TestCondicionesExecuteRequest:
         """Test: CondicionesExecuteRequest se crea con datos válidos."""
         request = CondicionesExecuteRequest(
             system="ERQ",
-            mandt="200",
+            mandt="300",
             username="test_user",
             password="test_pass",
             language="ES",
         )
         assert request.system == "ERQ"
-        assert request.mandt == "200"
+        assert request.mandt == "300"
         assert request.username == "test_user"
         assert request.password == "test_pass"
         assert request.language == "ES"
@@ -279,7 +279,7 @@ class TestCondicionesExecuteRequest:
         """Test: language tiene valor por defecto 'ES'."""
         request = CondicionesExecuteRequest(
             system="ERQ",
-            mandt="200",
+            mandt="300",
             username="test_user",
             password="test_pass",
         )
@@ -289,7 +289,7 @@ class TestCondicionesExecuteRequest:
         """Test: system es obligatorio."""
         with pytest.raises(ValidationError):
             CondicionesExecuteRequest(
-                mandt="200",
+                mandt="300",
                 username="test_user",
                 password="test_pass",
             )
@@ -308,7 +308,7 @@ class TestCondicionesExecuteRequest:
         with pytest.raises(ValidationError):
             CondicionesExecuteRequest(
                 system="ERQ",
-                mandt="200",
+                mandt="300",
                 password="test_pass",
             )
 
@@ -317,7 +317,7 @@ class TestCondicionesExecuteRequest:
         with pytest.raises(ValidationError):
             CondicionesExecuteRequest(
                 system="ERQ",
-                mandt="200",
+                mandt="300",
                 username="test_user",
             )
 
@@ -325,14 +325,14 @@ class TestCondicionesExecuteRequest:
         """Test: model_dump retorna diccionario correcto."""
         request = CondicionesExecuteRequest(
             system="ERQ",
-            mandt="200",
+            mandt="300",
             username="user",
             password="pass",
             language="ES",
         )
         data = request.model_dump()
         assert data["system"] == "ERQ"
-        assert data["mandt"] == "200"
+        assert data["mandt"] == "300"
         assert data["username"] == "user"
         assert data["password"] == "pass"
         assert data["language"] == "ES"

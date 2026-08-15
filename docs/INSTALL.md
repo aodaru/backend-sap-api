@@ -66,7 +66,7 @@ CORS_ORIGINS=http://localhost:4321,http://localhost:8000
 
 # SAP Configuration
 SAP_SYSTEM=PRD
-SAP_MANDANT=100
+SAP_MANDANT=300
 SAP_LANG=ES
 
 # Cola de peticiones

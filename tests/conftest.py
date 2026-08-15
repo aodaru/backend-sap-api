@@ -14,6 +14,37 @@ from fastapi.testclient import TestClient
 from main import app
 
 
+class _TestSapSession:
+    """Sesión falsa: permite probar navegación sin instalar SAP GUI."""
+
+    def execute_transaction(self, transaction, row):
+        return None
+
+
+class _TestSapProvider:
+    def acquire(self, credentials=None):
+        return _TestSapSession()
+
+    def release(self, session):
+        return None
+
+
+@pytest.fixture(autouse=True)
+def fake_sap_provider(monkeypatch, request):
+    """Aísla la suite de SAP real sin convertir el proveedor nulo en éxito."""
+    if request.node.get_closest_marker("sap_integration_disabled"):
+        return
+    from services.sap_executor import SapTransactionExecutor
+
+    monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("TestSettings", (), {
+        "sap_integration_enabled": True,
+        "max_retries": 0,
+        "sap_execution_timeout": 120,
+        "sap_retry_backoff": 0,
+    })())
+    monkeypatch.setattr("services.sap_executor.sap_executor", SapTransactionExecutor(_TestSapProvider()))
+
+
 @pytest.fixture(scope="module")
 def client() -> TestClient:
     """

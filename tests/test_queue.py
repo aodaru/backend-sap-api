@@ -428,7 +428,7 @@ class TestQueueEndpoints:
 
         credentials = json.dumps({
             "system": "ERQ",
-            "mandt": "200",
+            "mandt": "300",
             "username": "test_user",
             "password": "test_pass",
             "language": "ES",
@@ -595,7 +595,7 @@ class TestQueueFullHTTP:
         # La 6ta petición vía endpoint debería retornar 429
         credentials = json.dumps({
             "system": "ERQ",
-            "mandt": "200",
+            "mandt": "300",
             "username": "test_user",
             "password": "test_pass",
             "language": "ES",

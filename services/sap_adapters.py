@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from services.sap_errors import SapBusinessError, SapNavigationError
+from services.sap_errors import SapBusinessError, SapNavigationError, SapSessionUnavailableError
 
 
 @dataclass
@@ -101,6 +101,8 @@ class _Adapter:
         self._port = port
 
     async def _run_rows(self, session: Any, rows: Sequence[Mapping[str, Any]]) -> TransactionResult:
+        if session is None:
+            raise SapSessionUnavailableError()
         results: list[RowResult] = []
         for index, row in enumerate(rows, start=2):
             try:
@@ -109,7 +111,7 @@ class _Adapter:
                     value = self._action(session, mapped)
                     if hasattr(value, "__await__"):
                         await value
-                elif session is not None:
+                else:
                     self._port.navigate(session, mapped)
                     for message in self._port.read_messages(session):
                         message_type = getattr(message, "type", None) or (

@@ -169,7 +169,7 @@ async def execute_condiciones(
     El archivo debe ser válido (usar /upload para validar primero).
 
     Las credenciales SAP se envían como un campo de formulario JSON con
-    la estructura: {"system": "ERQ", "mandt": "200", "username": "...",
+    la estructura: {"system": "ERQ", "mandt": "300", "username": "...",
     "password": "...", "language": "ES"}.
 
     Requiere autenticación via header X-API-Key.

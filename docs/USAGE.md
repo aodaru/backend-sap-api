@@ -162,7 +162,7 @@ curl -H "X-API-Key: tu-api-key" \
 curl -H "X-API-Key: tu-api-key" \
   -X POST \
   -F "file=@datos_condiciones.xlsx" \
-  -F 'credentials={"system":"ERQ","mandt":"200","username":"user","password":"pass","language":"ES"}' \
+  -F 'credentials={"system":"ERQ","mandt":"300","username":"user","password":"pass","language":"ES"}' \
   http://localhost:8000/api/condiciones/execute
 ```
 

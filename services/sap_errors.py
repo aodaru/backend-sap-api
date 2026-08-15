@@ -15,6 +15,13 @@ class SapIntegrationError(Exception):
         self.message = message or self.public_message
 
 
+class SapIntegrationDisabledError(SapIntegrationError):
+    """La ejecución real fue solicitada sin habilitar la integración SAP."""
+
+    code = "integration_disabled"
+    public_message = "La integración real con SAP GUI no está habilitada"
+
+
 class SapConnectionError(SapIntegrationError):
     code = "connection_error"
     retryable = True
