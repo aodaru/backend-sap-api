@@ -6,9 +6,9 @@ Implementa la lógica de negocio para la transacción SAP ME12
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from fastapi import UploadFile
 
@@ -77,6 +77,27 @@ def get_template_path() -> Path:
     return Path(__file__).parent.parent / "templates" / "costos_template.xlsx"
 
 
+def _apply_me12_date_defaults(row_data: Dict[str, Any]) -> None:
+    """Completa fechas opcionales de ME12 en el formato contractual.
+
+    Excel puede entregar fechas como objetos ``date``/``datetime`` y las
+    celdas vacías pueden llegar como ``None`` o como texto en blanco. Solo se
+    modifican las dos columnas de vigencia; los demás valores permanecen
+    intactos.
+    """
+    date_fields = {
+        "Valido_Desde": date.today().strftime("%d.%m.%Y"),
+        "Valido_Hasta": "31.12.9999",
+    }
+
+    for field, default in date_fields.items():
+        value = row_data.get(field)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            row_data[field] = default
+        elif isinstance(value, (datetime, date)):
+            row_data[field] = value.strftime("%d.%m.%Y")
+
+
 async def validate_excel(
     file: UploadFile,
 ) -> Tuple[bool, List[ValidationDetail], List[Dict[str, Any]]]:
@@ -131,7 +152,8 @@ async def validate_excel(
             if all(cell is None for cell in row):
                 continue  # Saltar filas vacías
 
-            row_dict = dict(zip(headers, row))
+            row_dict = cast(Dict[str, Any], dict(zip(headers, row)))
+            _apply_me12_date_defaults(row_dict)
             rows_data.append(row_dict)
 
             # Validar que no haya campos vacíos

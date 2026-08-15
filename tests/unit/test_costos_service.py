@@ -10,10 +10,20 @@ Nota: Tests de validate_excel y execute_me12 están en tests/test_costos.py
 como tests de integración (usan FastAPI TestClient).
 """
 
+import io
+from datetime import date, datetime
+
+import openpyxl
 import pytest
+from fastapi import UploadFile
 
 from models.responses import JobStatus
-from services.costos_service import JobManager, REQUIRED_COLUMNS, get_template_path
+from services.costos_service import (
+    JobManager,
+    REQUIRED_COLUMNS,
+    get_template_path,
+    validate_excel,
+)
 
 
 # ============================================================
@@ -158,3 +168,47 @@ class TestRequiredColumns:
     def test_has_11_columns(self):
         """Test: REQUIRED_COLUMNS tiene 11 columnas."""
         assert len(REQUIRED_COLUMNS) == 11
+
+
+def _excel_file(rows):
+    """Construye un UploadFile ME12 para probar la validación directamente."""
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    assert worksheet is not None
+    worksheet.append(REQUIRED_COLUMNS)
+    for row in rows:
+        worksheet.append(row)
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    return UploadFile(filename="dates.xlsx", file=buffer)
+
+
+@pytest.mark.asyncio
+async def test_validate_excel_defaults_empty_me12_dates_into_rows_data():
+    """Las fechas ME12 vacías reciben defaults y no generan errores."""
+    row = ["MAT001", "PROV001", "1000", "0", "PB00", 10, "MXN", "1", "UN", None, "  "]
+
+    valid, errors, rows_data = await validate_excel(_excel_file([row]))
+
+    assert valid is True
+    assert errors == []
+    assert rows_data[0]["Valido_Desde"] == date.today().strftime("%d.%m.%Y")
+    assert rows_data[0]["Valido_Hasta"] == "31.12.9999"
+
+
+@pytest.mark.asyncio
+async def test_validate_excel_preserves_explicit_me12_dates_and_normalizes_excel_dates():
+    """Las fechas explícitas se conservan y las fechas nativas de Excel se formatean."""
+    explicit = ["MAT001", "PROV001", "1000", "0", "PB00", 10, "MXN", "1", "UN", "15.08.2026", "31.12.2026"]
+    excel_dates = ["MAT002", "PROV002", "1000", "0", "PB00", 20, "MXN", "1", "UN", date(2026, 8, 15), datetime(2026, 12, 31, 12, 30)]
+
+    valid, errors, rows_data = await validate_excel(_excel_file([explicit, excel_dates]))
+
+    assert valid is True
+    assert errors == []
+    assert rows_data[0]["Valido_Desde"] == "15.08.2026"
+    assert rows_data[0]["Valido_Hasta"] == "31.12.2026"
+    assert rows_data[1]["Valido_Desde"] == "15.08.2026"
+    assert rows_data[1]["Valido_Hasta"] == "31.12.2026"
