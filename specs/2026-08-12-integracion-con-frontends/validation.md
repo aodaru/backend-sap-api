@@ -2,32 +2,32 @@
 
 ## Estado de la fase
 
-**⬜ PENDIENTE**
+**✅ COMPLETADA**
 
 ## Criterios de éxito
 
 ### 1. Configuración CORS
-- [ ] CORS habilitado en `main.py`
-- [ ] Orígenes configurados para Astro y Laravel
-- [ ] Métodos HTTP permitidos: GET, POST, OPTIONS
-- [ ] Headers permitidos: X-API-Key, Content-Type
-- [ ] Configuración via variables de entorno
+- [x] CORS habilitado en `main.py`
+- [x] Orígenes configurados para Astro y Laravel
+- [x] Métodos HTTP permitidos: GET, POST, OPTIONS
+- [x] Headers permitidos: X-API-Key, Content-Type
+- [x] Configuración via variables de entorno
 
 ### 2. Endpoints Compatibles
-- [ ] Todos los endpoints responden a requests OPTIONS (preflight)
-- [ ] Endpoints funcionan con headers de origen
-- [ ] Autenticación API Key funciona con CORS
+- [x] Todos los endpoints responden a requests OPTIONS (preflight)
+- [x] Endpoints funcionan con headers de origen
+- [x] Autenticación API Key funciona con CORS
 
 ### 3. Documentación
-- [ ] Guía de integración para Astro creada
-- [ ] Guía de integración para Laravel creada
-- [ ] Ejemplos de código de consumo documentados
-- [ ] Flujo de comunicación Backend-Frontend documentado
+- [x] Guía de integración para Astro creada
+- [x] Guía de integración para Laravel creada
+- [x] Ejemplos de código de consumo documentados
+- [x] Flujo de comunicación Backend-Frontend documentado
 
 ### 4. Tests
-- [ ] Tests de CORS pasan
-- [ ] Tests de preflight pasan
-- [ ] Tests de integración con origins simulados pasan
+- [x] Tests de CORS pasan (12 tests)
+- [x] Tests de preflight pasan
+- [x] Tests de integración con origins simulados pasan
 
 ## Criterio de merge a main
 - [ ] Todos los criterios marcados

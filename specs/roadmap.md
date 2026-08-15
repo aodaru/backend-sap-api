@@ -155,18 +155,20 @@
 > **Spec**: `specs/2026-08-11-testing-y-documentacion/` — Testing y Documentación (pytest, Swagger UI, GitHub Actions)
 ---
 
-## Fase 9: Integración con Frontends
+## Fase 9: Integración con Frontends ✅
 **Objetivo**: Facilitar integración con frontends Astro/Laravel.
 
 ### Tareas
-1. [ ] Configurar CORS para frontends
-2. [ ] Crear endpoints de compatibilidad si es necesario
-3. [ ] Documentar flujo de integración
-4. [ ] Tests de integración con frontends simulados
+1. [x] Configurar CORS para frontends
+2. [x] Crear endpoints de compatibilidad si es necesario
+3. [x] Documentar flujo de integración
+4. [x] Tests de integración con frontends simulados
 
 ### Criterios de Aceptación
-- [ ] Frontends pueden consumir API sin problemas CORS
-- [ ] Documentación de integración clara
+- [x] Frontends pueden consumir API sin problemas CORS
+- [x] Documentación de integración clara
+
+> **Spec**: `specs/2026-08-12-integracion-con-frontends/` — Integración con Frontends (CORS, docs, tests)
 
 ---
 
