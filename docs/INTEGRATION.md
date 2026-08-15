@@ -10,13 +10,12 @@ El backend está configurado para permitir requests desde frontends Astro y Lara
 |----------|--------|-----|
 | Astro (dev) | 4321 | `http://localhost:4321` |
 | Laravel (dev) | 8080 | `http://localhost:8080` |
-| Astro (dev) | 3000 | `http://localhost:3000` |
 
 ### Variables de entorno
 
 ```env
 # CORS - Orígenes permitidos (separados por coma)
-CORS_ORIGINS=http://localhost:4321,http://localhost:8080,http://localhost:3000
+CORS_ORIGINS=http://localhost:4321,http://localhost:8080
 ```
 
 ## Autenticación
@@ -50,7 +49,7 @@ Respuesta:
 GET /api/costos/template          # Descargar Excel template
 POST /api/costos/upload           # Subir Excel con datos
 POST /api/costos/execute          # Ejecutar transacción
-GET /api/costos/status/{job_id}   # Consultar estado
+GET /api/costos/status/{job_id}   # Consultar estado del job de ejecución
 ```
 
 ### Condiciones (VK12)
@@ -95,26 +94,29 @@ const upload = await fetch(`${API_BASE}/api/costos/upload`, {
   body: formData
 });
 const uploadData = await upload.json();
-console.log(uploadData.job_id); // ID del job
+console.log(uploadData);
+// { filename, row_count, valid, validations }
 
 // Ejecutar transacción
+// /execute también recibe el Excel como multipart/form-data.
+// FormData genera automáticamente el Content-Type y su boundary.
+const executeFormData = new FormData();
+executeFormData.append('file', excelFile);
 const execute = await fetch(`${API_BASE}/api/costos/execute`, {
   method: 'POST',
-  headers: {
-    'X-API-Key': API_KEY,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({ job_id: uploadData.job_id })
+  headers: { 'X-API-Key': API_KEY },
+  body: executeFormData
 });
 const executeData = await execute.json();
-console.log(executeData.status); // "queued"
+console.log(executeData.job_id, executeData.status); // ID y "completed"
 
 // Consultar estado
-const status = await fetch(`${API_BASE}/api/costos/status/${uploadData.job_id}`, {
+// El job_id lo devuelve /execute, no /upload.
+const status = await fetch(`${API_BASE}/api/costos/status/${executeData.job_id}`, {
   headers: { 'X-API-Key': API_KEY }
 });
 const statusData = await status.json();
-console.log(statusData.status); // "completed", "processing", "queued"
+console.log(statusData.status); // "completed" (o el estado actual del job)
 ```
 
 ### Astro
