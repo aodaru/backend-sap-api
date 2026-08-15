@@ -37,6 +37,7 @@ class JobStatus(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    TIMEOUT = "timeout"
     QUEUED = "queued"
     CANCELLED = "cancelled"
 

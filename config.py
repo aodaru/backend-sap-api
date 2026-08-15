@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     sap_system: str = "PRD"
     sap_mandant: str = "100"
     sap_lang: str = "ES"
+    sap_connection_name: str = ""
+    sap_session_index: int = 0
+    sap_integration_enabled: bool = False
 
     # Servidor
     server_host: str = "0.0.0.0"
@@ -42,8 +45,10 @@ class Settings(BaseSettings):
 
     # Cola de peticiones SAP
     sap_execution_timeout: int = 120  # Timeout en segundos por ejecución
+    sap_queue_wait_timeout: int = 120  # Tiempo máximo esperando turno
     max_queue_size: int = 5  # Máximo de peticiones en cola
     max_retries: int = 2  # Reintentos en errores transitorios
+    sap_retry_backoff: int = 1
 
     # Logging y Auditoría
     log_dir: str = "logs"  # Directorio donde se almacenan los logs de auditoría

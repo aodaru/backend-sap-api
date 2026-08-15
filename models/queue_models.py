@@ -19,6 +19,7 @@ class QueueJobStatus(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    TIMEOUT = "timeout"
     CANCELLED = "cancelled"
 
 
@@ -93,6 +94,7 @@ class QueueStats(BaseModel):
     total_failed: int = Field(
         default=0, description="Peticiones que fallaron"
     )
+    total_timeout: int = Field(default=0, description="Peticiones agotadas por timeout")
     total_cancelled: int = Field(
         default=0, description="Peticiones canceladas por el usuario"
     )

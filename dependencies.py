@@ -58,7 +58,7 @@ def verify_api_key(
 
     if api_key not in settings.api_keys_list:
         audit_logger.log_auth(
-            user_id=api_key[:8] + "..." if len(api_key) > 8 else api_key,
+            user_id="unknown",
             success=False,
             ip_address=ip_address,
             message="API Key inválida",
@@ -70,7 +70,7 @@ def verify_api_key(
 
     # Log de autenticación exitosa
     audit_logger.log_auth(
-        user_id=api_key[:8] + "..." if len(api_key) > 8 else api_key,
+        user_id="authenticated",
         success=True,
         ip_address=ip_address,
         message="Autenticación exitosa",

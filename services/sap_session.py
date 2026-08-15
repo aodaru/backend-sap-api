@@ -1,0 +1,88 @@
+"""Proveedor opcional y seguro de sesiones SAP GUI.
+
+``win32com`` se importa únicamente al solicitar una sesión y por tanto este
+módulo puede importarse y probarse en Linux/CI sin SAP instalado.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any, Protocol
+
+from services.sap_errors import (
+    SapConnectionError,
+    SapScriptingUnavailableError,
+    SapSessionUnavailableError,
+)
+
+
+class SapSession(Protocol):
+    """Contrato mínimo que usan los adaptadores y los mocks."""
+
+    def release(self) -> None: ...
+
+
+class SapSessionProvider(Protocol):
+    """Obtiene una sesión ya abierta, nunca crea sesiones concurrentes."""
+
+    def acquire(self, credentials: Mapping[str, str] | None = None) -> Any: ...
+
+    def release(self, session: Any) -> None: ...
+
+
+class Win32ComSapSessionProvider:
+    """Proveedor para SAP GUI Scripting en Windows.
+
+    La conexión, el mandante y el idioma se configuran fuera del código. El
+    proveedor solo inspecciona conexiones/sesiones ya abiertas.
+    """
+
+    def __init__(self, connection_name: str | None = None, session_index: int = 0) -> None:
+        self.connection_name = connection_name
+        self.session_index = session_index
+
+    def acquire(self, credentials: Mapping[str, str] | None = None) -> Any:
+        del credentials  # Nunca se conserva ni se registra.
+        try:
+            import win32com.client  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise SapScriptingUnavailableError() from exc
+        try:
+            sap_gui = win32com.client.GetObject("SAPGUI")
+            application = sap_gui.GetScriptingEngine
+            connections = [application.Children(i) for i in range(application.Children.Count)]
+            if self.connection_name:
+                connections = [c for c in connections if getattr(c, "Description", "") == self.connection_name]
+            if not connections:
+                raise SapSessionUnavailableError()
+            connection = connections[0]
+            if connection.Children.Count <= self.session_index:
+                raise SapSessionUnavailableError()
+            session = connection.Children(self.session_index)
+            if getattr(session, "Busy", False):
+                raise SapSessionUnavailableError("La sesión SAP GUI está ocupada o bloqueada")
+            return session
+        except SapSessionUnavailableError:
+            raise
+        except Exception as exc:
+            raise SapConnectionError() from exc
+
+    def release(self, session: Any) -> None:
+        """Deja la sesión abierta, pero libera referencias del job."""
+        try:
+            if hasattr(session, "release"):
+                session.release()
+        except Exception:
+            # El cierre del job no debe dejar el worker bloqueado.
+            return
+
+
+class NullSapSessionProvider:
+    """Proveedor usado explícitamente en tests y modo simulado."""
+
+    def acquire(self, credentials: Mapping[str, str] | None = None) -> Any:
+        del credentials
+        return None
+
+    def release(self, session: Any) -> None:
+        del session

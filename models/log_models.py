@@ -18,6 +18,7 @@ class LogLevel(str, Enum):
     AUDIT = "audit"
     INFO = "info"
     ERROR = "error"
+    TIMEOUT = "timeout"
 
 
 class LogStatus(str, Enum):

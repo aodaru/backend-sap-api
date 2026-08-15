@@ -28,6 +28,7 @@ from services.costos_service import (
     validate_excel,
 )
 from services.logging_service import audit_logger
+from services.sap_errors import public_error
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,7 @@ async def execute_costos(
                     "row": 0,
                     "material": "",
                     "proveedor": "",
-                    "message": str(e),
+                    "message": "Cola llena: no hay capacidad disponible",
                 }
             ],
             metadata={
@@ -224,8 +225,17 @@ async def execute_costos(
 
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=str(e),
+            detail="Cola llena: no hay capacidad disponible",
         )
+    except Exception as e:
+        duration = time.time() - start_time
+        message, http_status = public_error(e)
+        audit_logger.log_execution(
+            job_id=job_id, user_id="system", transaction="ME12", status="timeout" if http_status == 504 else "error",
+            duration=duration, sap_login_success=False, rows_total=len(rows_data), rows_success=0,
+            rows_failed=len(rows_data), errors=[{"row": 0, "message": message}], metadata={"filename": file.filename},
+        )
+        raise HTTPException(status_code=http_status, detail=message)
 
     return CostosExecuteResponse(
         job_id=job_id,

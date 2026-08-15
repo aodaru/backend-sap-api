@@ -185,7 +185,7 @@ async def validate_excel(
 
     except Exception as e:
         errors.append(
-            ValidationDetail(row=0, field="file", error=f"Error al leer archivo: {e!s}")
+            ValidationDetail(row=0, field="file", error="No se pudo leer el archivo")
         )
         return False, errors, []
 
@@ -213,13 +213,13 @@ async def execute_me12(
     """
     from services.queue_service import request_queue
 
-    # Encolar la petición
     try:
-        await request_queue.enqueue(
-            job_id=job_id,
-            transaction="ME12",
-            user_id="system",
-        )
+        job_manager.update_job(job_id, JobStatus.QUEUED, progress=0)
+        async def _execute_sap() -> Dict[str, Any]:
+            job_manager.update_job(job_id, JobStatus.PROCESSING, progress=10)
+            from services.sap_executor import sap_executor
+            return (await sap_executor.execute("ME12", file_data)).as_dict()
+        results = await request_queue.run_job(job_id, "ME12", _execute_sap)
     except ValueError:
         # Cola llena - propagar error
         job_manager.update_job(
@@ -229,34 +229,19 @@ async def execute_me12(
             results={"message": "Cola de peticiones llena"},
         )
         raise
-
-    # Marcar como procesando
-    job_manager.update_job(job_id, JobStatus.PROCESSING, progress=10)
-
-    # Desencolar para procesar
-    await request_queue.dequeue()
-
-    # Función interna de ejecución
-    async def _execute_sap() -> Dict[str, Any]:
-        """Ejecuta la transacción SAP ME12."""
-        # TODO: Implementar integración real con SAP GUI
-        # Por ahora retorna mock de éxito
-        return {
-            "processed": len(file_data),
-            "successful": len(file_data),
-            "failed": 0,
-            "message": "ME12 ejecutado exitosamente",
-        }
+    except Exception as e:
+        from services.sap_errors import safe_exception
+        safe_error = safe_exception(e)
+        error_msg = getattr(safe_error, "public_message", "No se pudo completar ME12")
+        job_manager.update_job(
+            job_id,
+            JobStatus.TIMEOUT if getattr(safe_error, "code", "") in {"execution_timeout", "queue_wait_timeout"} else JobStatus.FAILED,
+            progress=0,
+            results={"message": error_msg},
+        )
+        raise safe_error
 
     try:
-        # Ejecutar con reintentos
-        results = await request_queue.process_with_retries(
-            job_id, _execute_sap
-        )
-
-        # Marcar como completada en la cola
-        await request_queue.mark_completed(job_id, results)
-
         # Actualizar job manager
         job_manager.update_job(
             job_id,
@@ -264,27 +249,27 @@ async def execute_me12(
             progress=100,
             results={
                 "processed": len(file_data),
-                "successful": len(file_data),
-                "failed": 0,
+                "successful": results["successful"],
+                "failed": results["failed"],
                 "message": results.get("message", "ME12 ejecutado exitosamente"),
+                "rows": results.get("rows", []),
             },
         )
 
         return {
             "processed": len(file_data),
-            "successful": len(file_data),
-            "failed": 0,
+            "successful": results["successful"],
+            "failed": results["failed"],
+            "rows": results.get("rows", []),
         }
 
     except Exception as e:
-        # Marcar como fallida en la cola
-        error_msg = str(e)
-        await request_queue.mark_failed(job_id, error_msg)
+        error_msg = getattr(e, "public_message", "No se pudo completar ME12")
 
         # Actualizar job manager
         job_manager.update_job(
             job_id,
-            JobStatus.FAILED,
+            JobStatus.TIMEOUT if getattr(e, "code", "") in {"execution_timeout", "queue_wait_timeout"} else JobStatus.FAILED,
             progress=0,
             results={"message": error_msg},
         )

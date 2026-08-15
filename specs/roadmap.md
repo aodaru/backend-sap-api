@@ -172,9 +172,31 @@
 
 ---
 
+## Fase 10: Integración Real con SAP GUI ⬜ Pendiente
+**Objetivo**: Ejecutar de forma controlada ME12 y VK12 contra SAP GUI real en Windows y garantizar sus contratos de integración con los frontends.
+
+### Tareas
+1. [ ] Configurar y validar host Windows, SAP GUI Scripting, `win32com` y sesión SAP activa.
+2. [ ] Separar adaptadores reales para ME12 y VK12.
+3. [ ] Integrar ambos adaptadores con una cola de un solo proceso.
+4. [ ] Implementar errores, timeouts, reintentos limitados y auditoría segura.
+5. [ ] Proteger las credenciales de VK12 durante todo su ciclo de vida.
+6. [ ] Garantizar la descarga autenticada de templates mediante `StreamingResponse`.
+7. [ ] Añadir pruebas frontend y pruebas backend con mocks sin tocar SAP real.
+8. [ ] Validar manualmente una ejecución controlada de cada transacción en Windows.
+
+### Criterios de Aceptación
+- [ ] ME12 y VK12 se ejecutan con sus adaptadores separados en SAP GUI real.
+- [ ] Solo existe un proceso SAP activo y la cola serializa las peticiones.
+- [ ] Los errores, timeouts, reintentos y auditoría cumplen la política documentada.
+- [ ] Las credenciales VK12 no se exponen ni persisten.
+- [ ] Ambos frontends pueden descargar sus templates con API Key y headers correctos.
+- [ ] La suite de pruebas pasa sin conexión a SAP real.
+
+> **Spec**: `specs/2026-08-15-integracion-real-sap-gui/` — Integración real SAP GUI para ME12/VK12, contratos de templates, seguridad y pruebas mockeadas
+
 ## Notas
 - **Fases independientes**: Cada fase se puede implementar y probar por separado
 - **Prioridad**: Fases 1-4 son críticas para MVP; fases 5-9 son mejoras incrementales
 - **Flexibilidad**: El orden puede ajustarse según necesidades urgentes
 - **Scope creep**: Mantener cada fase enfocada y acotada
-
