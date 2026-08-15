@@ -100,3 +100,19 @@ async def root(
         "docs": "/docs",
         "health": "/api/health",
     }
+
+
+def run_server() -> None:
+    """Inicia Uvicorn usando la configuración del servidor."""
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host=settings.server_host,
+        port=settings.server_port,
+        reload=settings.debug,
+    )
+
+
+if __name__ == "__main__":
+    run_server()
