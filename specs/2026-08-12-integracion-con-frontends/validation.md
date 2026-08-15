@@ -2,7 +2,7 @@
 
 ## Estado de la fase
 
-**✅ COMPLETADA**
+**✅ VERIFICADA EN ENTORNO LOCAL**
 
 ## Criterios de éxito
 
@@ -23,14 +23,16 @@
 - [x] Guía de integración para Laravel creada
 - [x] Ejemplos de código de consumo documentados
 - [x] Flujo de comunicación Backend-Frontend documentado
+- [x] Contrato multipart de VK12 y respuestas `200`/`202` documentados
 
 ### 4. Tests
 - [x] Tests de CORS pasan (12 tests)
 - [x] Tests de preflight pasan
 - [x] Tests de integración con origins simulados pasan
+- [x] Test de contrato VK12 `execute` con `file` y `credentials` pasa sin SAP real
 
 ## Criterio de merge a main
-- [ ] Todos los criterios marcados
+- [x] Todos los criterios técnicos verificables marcados
 - [ ] PR abierto
 - [ ] Validación manual ejecutada
 

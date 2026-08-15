@@ -7,6 +7,7 @@ en todos los endpoints de la API.
 
 import io
 import json
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -152,6 +153,41 @@ class TestCondicionesEdgeCases:
             files={"file": ("test.xlsx", valid_condiciones_excel, "application/octet-stream")},
         )
         assert response.status_code == 422
+
+    def test_execute_vk12_multipart_contract_without_sap(
+        self, client: TestClient, valid_api_key: str, valid_condiciones_excel,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Test: VK12 acepta file y credentials sin conectar con SAP real."""
+        mocked_execute = AsyncMock(return_value={"processed": 1})
+        monkeypatch.setattr("routers.condiciones.execute_vk12", mocked_execute)
+        credentials = {
+            "system": "ERQ",
+            "mandt": "300",
+            "username": "sap-user",
+            "password": "not-a-real-password",
+            "language": "ES",
+        }
+
+        response = client.post(
+            "/api/condiciones/execute",
+            headers={"X-API-Key": valid_api_key},
+            data={"credentials": json.dumps(credentials)},
+            files={
+                "file": (
+                    "condiciones.xlsx",
+                    valid_condiciones_excel,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            },
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data["job_id"]
+        assert data["status"] == "completed"
+        mocked_execute.assert_awaited_once()
+        assert mocked_execute.await_args.kwargs["credentials"] == credentials
 
     def test_template_returns_xlsx_content_type(
         self, client: TestClient, valid_api_key: str

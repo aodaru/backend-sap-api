@@ -61,6 +61,45 @@ POST /api/condiciones/execute          # Ejecutar transacción
 GET /api/condiciones/status/{job_id}   # Consultar estado
 ```
 
+`POST /api/condiciones/execute` recibe `multipart/form-data` y requiere ambos
+campos siguientes:
+
+- `file`: archivo Excel `.xlsx` o `.xls`.
+- `credentials`: texto JSON con `system`, `mandt`, `username`, `password` y
+  `language`.
+
+Ejemplo válido con `curl` (use valores reales solo en su entorno seguro):
+
+```bash
+curl -X POST http://localhost:8000/api/condiciones/execute \
+  -H "X-API-Key: $API_KEY" \
+  -F 'file=@condiciones.xlsx;type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' \
+  -F 'credentials={"system":"ERQ","mandt":"300","username":"sap-user","password":"example-password","language":"ES"}'
+```
+
+La misma llamada desde JavaScript debe conservar `FormData`; no establezca
+manualmente `Content-Type`, porque el navegador añade el boundary multipart:
+
+```javascript
+const formData = new FormData();
+formData.append('file', excelFile);
+formData.append('credentials', JSON.stringify({
+  system: 'ERQ',
+  mandt: '300',
+  username: sapUsername,
+  password: sapPassword,
+  language: 'ES',
+}));
+
+const response = await fetch(`${API_BASE}/api/condiciones/execute`, {
+  method: 'POST',
+  headers: { 'X-API-Key': API_KEY },
+  body: formData,
+});
+const execution = await response.json();
+// 202: { job_id, status, message }
+```
+
 ## Ejemplos de consumo
 
 ### JavaScript (fetch)
@@ -178,7 +217,8 @@ class SapController extends Controller
 
 | Código | Significado |
 |--------|-------------|
-| 200 | Éxito |
+| 200 | Éxito en consultas, templates, uploads y operaciones síncronas |
+| 202 | Ejecución aceptada: `/api/costos/execute` o `/api/condiciones/execute` devuelve `job_id` |
 | 400 | Datos inválidos |
 | 401 | API Key fálida o ausente |
 | 404 | Endpoint no encontrado |
