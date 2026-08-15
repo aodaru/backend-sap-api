@@ -192,6 +192,13 @@ pip install openpyxl
 
 En Linux/macOS, `win32com` no está disponible. Los tests mockean esta dependencia automáticamente.
 
+### Diagnóstico Windows de HTTP 503
+
+Consultar el `operational_code` de auditoría asociado al `job_id`. El checklist
+completo (integración habilitada, pywin32, SAPGUI, conexión, sesión y sesión
+ocupada) está en `specs/2026-08-15-integracion-real-sap-gui/diagnostic-503-report.md`.
+Los mensajes HTTP no incluyen secretos ni rutas internas.
+
 ### Tests fallan con `asyncio` errors
 
 Asegúrate de tener `pytest-asyncio` instalado:

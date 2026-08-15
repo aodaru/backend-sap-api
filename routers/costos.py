@@ -28,7 +28,7 @@ from services.costos_service import (
     validate_excel,
 )
 from services.logging_service import audit_logger
-from services.sap_errors import public_error
+from services.sap_errors import operational_context, public_error
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +176,7 @@ async def execute_costos(
 
     # Ejecutar en background (por ahora síncrono para MVP)
     start_time = time.time()
+    safe_filename = file.filename.replace("\\", "/").rsplit("/", 1)[-1]
     try:
         await execute_me12(rows_data, job_id)
         duration = time.time() - start_time
@@ -193,7 +194,7 @@ async def execute_costos(
             rows_failed=0,
             errors=[],
             metadata={
-                "filename": file.filename,
+                "filename": safe_filename,
             },
         )
     except ValueError as e:
@@ -219,7 +220,7 @@ async def execute_costos(
                 }
             ],
             metadata={
-                "filename": file.filename,
+                "filename": safe_filename,
             },
         )
 
@@ -230,10 +231,13 @@ async def execute_costos(
     except Exception as e:
         duration = time.time() - start_time
         message, http_status = public_error(e)
+        context = operational_context(e)
         audit_logger.log_execution(
-            job_id=job_id, user_id="system", transaction="ME12", status="timeout" if http_status == 504 else "error",
+            job_id=job_id, user_id="system", transaction="ME12", status="error",
             duration=duration, sap_login_success=False, rows_total=len(rows_data), rows_success=0,
-            rows_failed=len(rows_data), errors=[{"row": 0, "message": message}], metadata={"filename": file.filename},
+            rows_failed=len(rows_data), errors=[{"row": 0, "message": message}],
+            metadata={"filename": file.filename.rsplit("\\", 1)[-1].rsplit("/", 1)[-1], **context},
+            operational_code=str(context["operational_code"]),
         )
         raise HTTPException(status_code=http_status, detail=message)
 

@@ -11,7 +11,10 @@ from typing import Any, Protocol
 
 from services.sap_errors import (
     SapConnectionError,
+    SapConnectionUnavailableError,
     SapIntegrationDisabledError,
+    SapGuiNotFoundError,
+    SapSessionBusyError,
     SapScriptingUnavailableError,
     SapSessionUnavailableError,
 )
@@ -49,21 +52,24 @@ class Win32ComSapSessionProvider:
         except ImportError as exc:
             raise SapScriptingUnavailableError() from exc
         try:
-            sap_gui = win32com.client.GetObject("SAPGUI")
+            try:
+                sap_gui = win32com.client.GetObject("SAPGUI")
+            except Exception as exc:
+                raise SapGuiNotFoundError() from exc
             application = sap_gui.GetScriptingEngine
             connections = [application.Children(i) for i in range(application.Children.Count)]
             if self.connection_name:
                 connections = [c for c in connections if getattr(c, "Description", "") == self.connection_name]
             if not connections:
-                raise SapSessionUnavailableError()
+                raise SapConnectionUnavailableError()
             connection = connections[0]
             if connection.Children.Count <= self.session_index:
                 raise SapSessionUnavailableError()
             session = connection.Children(self.session_index)
             if getattr(session, "Busy", False):
-                raise SapSessionUnavailableError("La sesión SAP GUI está ocupada o bloqueada")
+                raise SapSessionBusyError()
             return session
-        except SapSessionUnavailableError:
+        except (SapGuiNotFoundError, SapConnectionUnavailableError, SapSessionUnavailableError, SapSessionBusyError):
             raise
         except Exception as exc:
             raise SapConnectionError() from exc

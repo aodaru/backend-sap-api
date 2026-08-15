@@ -3,6 +3,8 @@
 import asyncio
 import io
 import json
+import sys
+import types
 
 import pytest
 
@@ -143,6 +145,62 @@ def test_win32com_is_optional_and_never_imported_at_module_import():
         Win32ComSapSessionProvider().acquire()
 
 
+@pytest.mark.parametrize(
+    ("scenario", "expected_code"),
+    [
+        ("sapgui", "sapgui_not_found"),
+        ("connection", "connection_unavailable"),
+        ("session", "session_unavailable"),
+        ("busy", "session_busy"),
+    ],
+)
+def test_windows_provider_classifies_operational_causes(monkeypatch, scenario, expected_code):
+    """La frontera Windows conserva la causa sin exponer el detalle COM."""
+    from services.sap_errors import SapIntegrationError
+
+    class ChildCollection:
+        def __init__(self, values=()):
+            self.values = list(values)
+            self.Count = len(self.values)
+
+        def __call__(self, index):
+            return self.values[index]
+
+    def empty_children():
+        return ChildCollection()
+
+    class Client:
+        @staticmethod
+        def GetObject(name):
+            if scenario == "sapgui":
+                raise RuntimeError("COM detail with internal path")
+            if scenario == "connection":
+                app = Application()
+                app.Children = empty_children()
+                return types.SimpleNamespace(GetScriptingEngine=app)
+            app = Application()
+            connection = types.SimpleNamespace(Description="PRD")
+            if scenario == "session":
+                connection.Children = empty_children()
+            else:
+                session = types.SimpleNamespace(Busy=scenario == "busy")
+                connection.Children = ChildCollection([session])
+            app.Children = ChildCollection([connection])
+            return types.SimpleNamespace(GetScriptingEngine=app)
+
+    class Application:
+        Children = empty_children()
+
+    win32com = types.ModuleType("win32com")
+    win32com.client = Client
+    monkeypatch.setitem(sys.modules, "win32com", win32com)
+    monkeypatch.setitem(sys.modules, "win32com.client", Client)
+    with pytest.raises(SapIntegrationError) as error:
+        Win32ComSapSessionProvider().acquire()
+    assert error.value.code == expected_code
+    assert "/" not in str(error.value)
+
+
 @pytest.mark.asyncio
 async def test_disabled_integration_never_returns_success_or_navigates(monkeypatch):
     """Regresión del 200 sin acción: el proveedor nulo debe fallar explícitamente."""
@@ -188,6 +246,114 @@ def test_http_disabled_integration_returns_503_failed_job_without_success_audit(
     entries = audit_logger.get_logs_by_job_id(job_id)
     assert entries
     assert all(entry.status != "success" for entry in entries)
+    assert entries[0].operational_code == "integration_disabled"
+
+
+@pytest.mark.sap_integration_disabled
+def test_http_costos_execute_audits_safe_code_and_failed_job(
+    valid_excel_file, monkeypatch
+):
+    """ME12 conserva causa operativa, estado fallido y no registra éxito."""
+    from services.costos_service import job_manager
+    from services.logging_service import audit_logger
+
+    monkeypatch.setattr("services.sap_executor.get_settings", lambda: type("S", (), {
+        "sap_integration_enabled": False,
+        "max_retries": 0,
+        "sap_execution_timeout": 1,
+        "sap_retry_backoff": 0,
+    })())
+    before = set(job_manager._jobs)
+    secret = "me12-secret-password"
+    response = TestClient(app).post(
+        "/api/costos/execute",
+        headers={"X-API-Key": "mi-api-key-secreta"},
+        files={
+            "file": (
+                "C:\\private\\me12-report.xlsx",
+                valid_excel_file,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "La integración real con SAP GUI no está habilitada"
+    assert secret not in response.text
+    assert "C:\\private" not in response.text
+    job_id = (set(job_manager._jobs) - before).pop()
+    job = job_manager.get_job(job_id)
+    assert job is not None
+    assert job["status"] == "failed"
+    entries = audit_logger.get_logs_by_job_id(job_id)
+    assert entries
+    assert entries[0].operational_code == "integration_disabled"
+    assert entries[0].status != "success"
+    assert entries[0].metadata["filename"] == "me12-report.xlsx"
+    assert secret not in str(entries)
+    assert "C:\\private" not in str(entries)
+
+
+@pytest.mark.parametrize(
+    ("error_type", "expected_code"),
+    [
+        ("SapIntegrationDisabledError", "integration_disabled"),
+        ("SapScriptingUnavailableError", "scripting_unavailable"),
+        ("SapGuiNotFoundError", "sapgui_not_found"),
+        ("SapConnectionUnavailableError", "connection_unavailable"),
+        ("SapSessionUnavailableError", "session_unavailable"),
+        ("SapSessionBusyError", "session_busy"),
+    ],
+)
+def test_vk12_http_and_audit_classify_all_safe_sap_causes(
+    client, valid_api_key, valid_condiciones_excel, monkeypatch, error_type, expected_code
+):
+    """VK12 no pierde el código operativo y nunca refleja ruta/secreto."""
+    from services import sap_errors
+    from services.costos_service import job_manager
+    from services.logging_service import audit_logger
+
+    error_class = getattr(sap_errors, error_type)
+
+    async def fail(*args, **kwargs):
+        raise error_class("C:\\internal\\secret-password")
+
+    monkeypatch.setattr("routers.condiciones.execute_vk12", fail)
+    before = set(job_manager._jobs)
+    secret = "secret-password"
+    response = client.post(
+        "/api/condiciones/execute",
+        headers={"X-API-Key": valid_api_key},
+        data={
+            "credentials": json.dumps(
+                {"system": "PRD", "mandt": "300", "username": "u", "password": secret, "language": "ES"}
+            )
+        },
+        files={"file": ("C:\\private\\report.xlsx", valid_condiciones_excel, "application/octet-stream")},
+    )
+
+    assert response.status_code == 503
+    assert secret not in response.text
+    assert "C:\\private" not in response.text
+    job_id = (set(job_manager._jobs) - before).pop()
+    entries = audit_logger.get_logs_by_job_id(job_id)
+    assert entries
+    assert entries[0].operational_code == expected_code
+    assert entries[0].metadata["filename"] == "report.xlsx"
+    assert secret not in str(entries)
+    assert "C:\\private" not in str(entries)
+
+
+def test_public_error_ignores_arbitrary_exception_message_and_code():
+    from services.sap_errors import public_error, operational_context
+
+    error = type(
+        "ArbitraryError",
+        (Exception,),
+        {"code": "invented-secret-code", "public_message": "password=leaked"},
+    )("C:\\private\\password=leaked")
+    assert public_error(error) == ("No se pudo completar la operación SAP", 503)
+    assert operational_context(error)["operational_code"] == "sap_error"
 
 
 def test_http_end_to_end_router_queue_worker_executor_adapter_with_fake_provider(

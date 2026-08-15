@@ -29,11 +29,16 @@ from services.condiciones_service import (
 )
 from services.costos_service import job_manager
 from services.logging_service import audit_logger
-from services.sap_errors import public_error
+from services.sap_errors import operational_context, public_error
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Condiciones"])
+
+
+def _safe_filename(filename: str | None) -> str:
+    """Reduce el nombre multipart a basename, sin conservar rutas del cliente."""
+    return (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
 
 
 class EphemeralCredentials(dict):
@@ -211,6 +216,7 @@ async def execute_condiciones(
 
     # Ejecutar en background (por ahora síncrono para MVP)
     start_time = time.time()
+    safe_filename = _safe_filename(file.filename)
     try:
         await execute_vk12(
             rows_data,
@@ -232,7 +238,7 @@ async def execute_condiciones(
             rows_failed=0,
             errors=[],
             metadata={
-                "filename": file.filename,
+                "filename": safe_filename,
                 "sap_system": request_system,
                 "sap_mandt": request_mandt,
             },
@@ -260,7 +266,7 @@ async def execute_condiciones(
                 }
             ],
             metadata={
-                "filename": file.filename,
+                "filename": safe_filename,
                 "sap_system": request_system,
                 "sap_mandt": request_mandt,
             },
@@ -274,12 +280,14 @@ async def execute_condiciones(
     except Exception as e:
         duration = time.time() - start_time
         message, http_status = public_error(e)
+        context = operational_context(e)
         audit_logger.log_execution(
             job_id=job_id, user_id=request_user, transaction="VK12",
-            status="timeout" if http_status == 504 else "error", duration=duration,
+            status="error", duration=duration,
             sap_login_success=False, rows_total=len(rows_data), rows_success=0,
             rows_failed=len(rows_data), errors=[{"row": 0, "message": message}],
-            metadata={"filename": file.filename, "sap_system": request_system, "sap_mandt": request_mandt},
+            metadata={"filename": safe_filename, "sap_system": request_system, "sap_mandt": request_mandt, **context},
+            operational_code=str(context["operational_code"]),
         )
         credential_payload.clear()
         raise HTTPException(status_code=http_status, detail=message)

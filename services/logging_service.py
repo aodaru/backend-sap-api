@@ -230,6 +230,7 @@ class AuditLogger:
         rows_failed: int,
         errors: Optional[List[Dict[str, Any]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        operational_code: Optional[str] = None,
     ) -> None:
         """
         Registra un log de ejecución SAP.
@@ -266,6 +267,7 @@ class AuditLogger:
             user_id=user_id,
             transaction=transaction,
             job_id=job_id,
+            operational_code=operational_code,
             status=LogStatus(status),
             duration_seconds=round(duration, 3),
             sap_login_success=sap_login_success,
