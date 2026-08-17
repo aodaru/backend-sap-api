@@ -14,8 +14,30 @@ from fastapi.testclient import TestClient
 from main import app
 
 
+class _MockControl:
+    """Mock de un control SAP GUI COM — acepta asignaciones de .Text, .SetFocus, etc."""
+
+    def __init__(self):
+        self.Text = ""
+        self.CaretPosition = 0
+
+    def SetFocus(self):
+        pass
+
+    def SendVKey(self, code):
+        pass
+
+    def resizeWorkingPane(self, w, h, flag):
+        pass
+
+
 class _TestSapSession:
     """Sesión falsa: permite probar navegación sin instalar SAP GUI."""
+
+    def findById(self, control_id):
+        if control_id == "wnd[1]":
+            raise Exception("no popup")
+        return _MockControl()
 
     def execute_transaction(self, transaction, row):
         return None

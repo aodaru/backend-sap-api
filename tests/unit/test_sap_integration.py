@@ -18,9 +18,33 @@ from main import app
 from tests.frontend_client import download_template
 
 
+class _MockControl:
+    """Mock de un control SAP GUI COM — acepta asignaciones de .Text, .SetFocus, etc."""
+
+    def __init__(self):
+        self.Text = ""
+        self.CaretPosition = 0
+
+    def SetFocus(self):
+        pass
+
+    def SendVKey(self, code):
+        pass
+
+    def resizeWorkingPane(self, w, h, flag):
+        pass
+
+
 class FakeSession:
+    """Fake session que imita la interfaz COM real de SAP GUI Scripting."""
+
     def __init__(self):
         self.calls = []
+
+    def findById(self, control_id):
+        if control_id == "wnd[1]":
+            raise Exception("no popup")
+        return _MockControl()
 
     def execute_transaction(self, transaction, row):
         self.calls.append((transaction, row))
@@ -60,6 +84,7 @@ def test_adapters_navigate_fields_interpret_messages_and_return_row_failures():
     class ScriptSession:
         def __init__(self):
             self.calls = []
+            self.vkeys = []
         def start_transaction(self, transaction):
             self.calls.append(("start", transaction))
         def set_fields(self, fields):
@@ -70,6 +95,10 @@ def test_adapters_navigate_fields_interpret_messages_and_return_row_failures():
             self.calls.append(("save",))
         def get_messages(self):
             return [{"type": "E", "text": "mensaje de negocio"}]
+        def findById(self, control_id):
+            if control_id == "wnd[1]":
+                raise Exception("no popup")
+            return _MockControl()
 
     session = ScriptSession()
     result = asyncio.run(Vk12Adapter().execute(session, [{"MATERIAL": "1"}]))
@@ -81,7 +110,8 @@ def test_adapters_navigate_fields_interpret_messages_and_return_row_failures():
     me_session.get_messages = lambda: []
     me_result = asyncio.run(Me12Adapter().execute(me_session, [{"Org_Compras": "1000"}]))
     assert me_result.successful == 1
-    assert me_session.calls[0] == ("start", "ME12")
+    # La nueva interfaz COM navega vía findById/SendVKey, no start_transaction
+    assert me_session.calls == []
 
 
 def test_navigation_error_is_not_retryable_for_either_transaction():
@@ -375,6 +405,18 @@ def test_http_end_to_end_router_queue_worker_executor_adapter_with_fake_provider
     class RecordingSession:
         def __init__(self):
             self.calls = []
+            self.vkeys = []
+
+        def findById(self, control_id):
+            if control_id == "wnd[1]":
+                raise Exception("no popup")
+            ctrl = _MockControl()
+            original_sendvkey = ctrl.SendVKey
+            def _track_sendvkey(code):
+                self.vkeys.append(code)
+                original_sendvkey(code)
+            ctrl.SendVKey = _track_sendvkey
+            return ctrl
 
         def execute_transaction(self, transaction, row):
             self.calls.append((transaction, row))
@@ -410,8 +452,8 @@ def test_http_end_to_end_router_queue_worker_executor_adapter_with_fake_provider
     )
     assert response.status_code == 202
     assert response.json()["status"] == "completed"
-    assert provider.session.calls[0][0] == "ME12"
-    assert provider.session.calls[0][1]["EKORG"] == "1000"
+    # La nueva interfaz COM navega vía findById/SendVKey; F11 = 11
+    assert 11 in provider.session.vkeys
 
 
 @pytest.mark.parametrize(
