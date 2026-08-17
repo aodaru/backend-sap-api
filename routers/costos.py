@@ -6,15 +6,25 @@ Endpoints para gestionar la transacción SAP ME12
 """
 
 import io
+import json
 import logging
 import time
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 
 from dependencies import verify_api_key
+
+
+class EphemeralCredentials(dict):
+    """Dict que se auto-destruye al usarlo."""
+
+    def clear(self):
+        for k in list(self.keys()):
+            del self[k]
 from models.responses import (
+    CondicionesExecuteRequest,
     CostosExecuteResponse,
     CostosStatusResponse,
     CostosUploadResponse,
@@ -145,13 +155,18 @@ async def upload_costos(
 )
 async def execute_costos(
     file: UploadFile,
+    credentials: str = Form(...),
     _api_key: str = Depends(verify_api_key),
 ):
     """
-    Ejecuta la transacción ME12 con los datos del archivo.
+    Ejecuta la transacción ME12 con los datos del archivo y credenciales SAP.
 
     Crea un job y retorna su ID para consultas posteriores.
     El archivo debe ser válido (usar /upload para validar primero).
+
+    Las credenciales SAP se envían como un campo de formulario JSON con
+    la estructura: {"system": "ERQ", "mandt": "300", "username": "...",
+    "password": "...", "language": "ES"}.
 
     Requiere autenticación via header X-API-Key.
     """
@@ -161,9 +176,23 @@ async def execute_costos(
             detail="El archivo debe ser un Excel (.xlsx o .xls)",
         )
 
+    # Parsear y validar credenciales con Pydantic
+    try:
+        creds_data = json.loads(credentials) if isinstance(credentials, str) else credentials
+        parsed_credentials = CondicionesExecuteRequest(**creds_data)
+        credential_payload = EphemeralCredentials(parsed_credentials.model_dump())
+        request_user = parsed_credentials.username
+        del parsed_credentials
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Credenciales inválidas",
+        )
+
     is_valid, validations, rows_data = await validate_excel(file)
 
     if not is_valid:
+        credential_payload.clear()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -178,13 +207,13 @@ async def execute_costos(
     start_time = time.time()
     safe_filename = file.filename.replace("\\", "/").rsplit("/", 1)[-1]
     try:
-        await execute_me12(rows_data, job_id)
+        await execute_me12(rows_data, job_id, credentials=credential_payload)
         duration = time.time() - start_time
 
         # Registrar log de auditoría exitoso
         audit_logger.log_execution(
             job_id=job_id,
-            user_id="system",
+            user_id=request_user,
             transaction="ME12",
             status="success",
             duration=duration,
@@ -203,7 +232,7 @@ async def execute_costos(
         # Registrar log de auditoría con error
         audit_logger.log_execution(
             job_id=job_id,
-            user_id="system",
+            user_id=request_user,
             transaction="ME12",
             status="error",
             duration=duration,
@@ -233,7 +262,7 @@ async def execute_costos(
         message, http_status = public_error(e)
         context = operational_context(e)
         audit_logger.log_execution(
-            job_id=job_id, user_id="system", transaction="ME12", status="error",
+            job_id=job_id, user_id=request_user, transaction="ME12", status="error",
             duration=duration, sap_login_success=False, rows_total=len(rows_data), rows_success=0,
             rows_failed=len(rows_data), errors=[{"row": 0, "message": message}],
             metadata={"filename": file.filename.rsplit("\\", 1)[-1].rsplit("/", 1)[-1], **context},

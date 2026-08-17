@@ -820,6 +820,11 @@ class TestExecutionGeneratesLog:
         response = client.post(
             "/api/costos/execute",
             headers={"X-API-Key": valid_api_key},
+            data={
+                "credentials": json.dumps(
+                    {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+                )
+            },
             files={"file": ("test_execute.xlsx", buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
         )
 

@@ -8,6 +8,7 @@ Implementa la lógica de negocio para la transacción SAP ME12
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from fastapi import UploadFile
@@ -191,7 +192,9 @@ async def validate_excel(
 
 
 async def execute_me12(
-    file_data: List[Dict[str, Any]], job_id: str
+    file_data: List[Dict[str, Any]],
+    job_id: str,
+    credentials: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Ejecuta la transacción SAP ME12 con los datos proporcionados.
@@ -218,7 +221,7 @@ async def execute_me12(
         async def _execute_sap() -> Dict[str, Any]:
             job_manager.update_job(job_id, JobStatus.PROCESSING, progress=10)
             from services.sap_executor import sap_executor
-            return (await sap_executor.execute("ME12", file_data)).as_dict()
+            return (await sap_executor.execute("ME12", file_data, credentials=credentials)).as_dict()
         results = await request_queue.run_job(job_id, "ME12", _execute_sap)
     except ValueError:
         # Cola llena - propagar error

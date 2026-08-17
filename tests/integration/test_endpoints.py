@@ -69,6 +69,11 @@ class TestCostosEdgeCases:
         response = client.post(
             "/api/costos/execute",
             headers={"X-API-Key": valid_api_key},
+            data={
+                "credentials": json.dumps(
+                    {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+                )
+            },
         )
         assert response.status_code == 422
 

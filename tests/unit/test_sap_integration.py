@@ -231,6 +231,11 @@ def test_http_disabled_integration_returns_503_failed_job_without_success_audit(
     response = TestClient(app).post(
         "/api/costos/execute",
         headers={"X-API-Key": "mi-api-key-secreta"},
+        data={
+            "credentials": json.dumps(
+                {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+            )
+        },
         files={"file": ("disabled.xlsx", valid_excel_file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
     )
 
@@ -268,6 +273,11 @@ def test_http_costos_execute_audits_safe_code_and_failed_job(
     response = TestClient(app).post(
         "/api/costos/execute",
         headers={"X-API-Key": "mi-api-key-secreta"},
+        data={
+            "credentials": json.dumps(
+                {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+            )
+        },
         files={
             "file": (
                 "C:\\private\\me12-report.xlsx",
@@ -391,6 +401,11 @@ def test_http_end_to_end_router_queue_worker_executor_adapter_with_fake_provider
     response = TestClient(app).post(
         "/api/costos/execute",
         headers={"X-API-Key": "mi-api-key-secreta"},
+        data={
+            "credentials": json.dumps(
+                {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+            )
+        },
         files={"file": ("e2e.xlsx", valid_excel_file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
     )
     assert response.status_code == 202

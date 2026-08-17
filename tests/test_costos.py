@@ -6,6 +6,7 @@ incluyendo descarga de template, upload, execute y status.
 """
 
 import io
+import json
 
 from fastapi.testclient import TestClient
 
@@ -107,6 +108,11 @@ def test_execute_valid_excel(
     response = client.post(
         "/api/costos/execute",
         headers={"X-API-Key": valid_api_key},
+        data={
+            "credentials": json.dumps(
+                {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+            )
+        },
         files={"file": ("test.xlsx", valid_excel_file, "application/octet-stream")},
     )
     assert response.status_code == 202
@@ -125,6 +131,11 @@ def test_execute_invalid_excel(
     response = client.post(
         "/api/costos/execute",
         headers={"X-API-Key": valid_api_key},
+        data={
+            "credentials": json.dumps(
+                {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+            )
+        },
         files={"file": ("test.xlsx", invalid_excel_file_missing_columns, "application/octet-stream")},
     )
     assert response.status_code == 400
@@ -136,6 +147,11 @@ def test_execute_requires_api_key(
     """Test: Execute requiere API Key."""
     response = client.post(
         "/api/costos/execute",
+        data={
+            "credentials": json.dumps(
+                {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+            )
+        },
         files={"file": ("test.xlsx", valid_excel_file, "application/octet-stream")},
     )
     assert response.status_code == 401
@@ -149,6 +165,11 @@ def test_status_returns_job(
     execute_response = client.post(
         "/api/costos/execute",
         headers={"X-API-Key": valid_api_key},
+        data={
+            "credentials": json.dumps(
+                {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+            )
+        },
         files={"file": ("test.xlsx", valid_excel_file, "application/octet-stream")},
     )
     job_id = execute_response.json()["job_id"]
