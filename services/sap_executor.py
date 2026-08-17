@@ -26,7 +26,14 @@ class SapTransactionExecutor:
         settings = get_settings()
         self._lock = asyncio.Lock()
         self._provider = provider or (
-            Win32ComSapSessionProvider(settings.sap_connection_name, settings.sap_session_index)
+            Win32ComSapSessionProvider(
+                sap_logon_path=settings.sap_logon_path,
+                system=settings.sap_system,
+                mandt=settings.sap_mandant,
+                username=settings.sap_username,
+                password=settings.sap_password,
+                language=settings.sap_lang,
+            )
             if settings.sap_integration_enabled else NullSapSessionProvider()
         )
 

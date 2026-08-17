@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     sap_session_index: int = 0
     sap_integration_enabled: bool = False
 
+    # SAP GUI Lifecycle — ciclo completo como desktop
+    sap_logon_path: str = r"C:\Program Files (x86)\SAP\FrontEnd\SAPgui\saplogon.exe"
+    sap_username: str = ""
+    sap_password: str = ""
+
     # Servidor
     server_host: str = "0.0.0.0"
     server_port: int = 8000
