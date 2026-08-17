@@ -18,6 +18,7 @@ class LogLevel(str, Enum):
     AUDIT = "audit"
     INFO = "info"
     ERROR = "error"
+    TIMEOUT = "timeout"
 
 
 class LogStatus(str, Enum):
@@ -67,6 +68,9 @@ class AuditLogEntry(BaseModel):
     )
     job_id: Optional[str] = Field(
         default=None, description="ID del job asociado"
+    )
+    operational_code: Optional[str] = Field(
+        default=None, description="Código operativo no sensible para diagnóstico"
     )
     status: Optional[LogStatus] = Field(
         default=None, description="Resultado de la operación"

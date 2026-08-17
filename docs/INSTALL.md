@@ -66,7 +66,7 @@ CORS_ORIGINS=http://localhost:4321,http://localhost:8000
 
 # SAP Configuration
 SAP_SYSTEM=PRD
-SAP_MANDANT=100
+SAP_MANDANT=300
 SAP_LANG=ES
 
 # Cola de peticiones
@@ -191,6 +191,13 @@ pip install openpyxl
 ### Error: `ImportError: win32com`
 
 En Linux/macOS, `win32com` no está disponible. Los tests mockean esta dependencia automáticamente.
+
+### Diagnóstico Windows de HTTP 503
+
+Consultar el `operational_code` de auditoría asociado al `job_id`. El checklist
+completo (integración habilitada, pywin32, SAPGUI, conexión, sesión y sesión
+ocupada) está en `specs/2026-08-15-integracion-real-sap-gui/diagnostic-503-report.md`.
+Los mensajes HTTP no incluyen secretos ni rutas internas.
 
 ### Tests fallan con `asyncio` errors
 

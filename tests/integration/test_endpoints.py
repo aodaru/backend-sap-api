@@ -69,6 +69,11 @@ class TestCostosEdgeCases:
         response = client.post(
             "/api/costos/execute",
             headers={"X-API-Key": valid_api_key},
+            data={
+                "credentials": json.dumps(
+                    {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+                )
+            },
         )
         assert response.status_code == 422
 
@@ -159,14 +164,19 @@ class TestCondicionesEdgeCases:
         monkeypatch: pytest.MonkeyPatch,
     ):
         """Test: VK12 acepta file y credentials sin conectar con SAP real."""
-        mocked_execute = AsyncMock(return_value={"processed": 1})
+        # Capturar snapshot de credentials antes de que el router las limpie
+        captured_credentials = {}
+
+        async def _capture_execute(*_args, **kwargs):
+            captured_credentials.update(kwargs.get("credentials", {}))
+            return {"processed": 1}
+
+        mocked_execute = AsyncMock(side_effect=_capture_execute)
         monkeypatch.setattr("routers.condiciones.execute_vk12", mocked_execute)
+        # Frontend solo envía username y password; system/mandt/language vienen del .env
         credentials = {
-            "system": "ERQ",
-            "mandt": "300",
             "username": "sap-user",
             "password": "not-a-real-password",
-            "language": "ES",
         }
 
         response = client.post(
@@ -187,7 +197,10 @@ class TestCondicionesEdgeCases:
         assert data["job_id"]
         assert data["status"] == "completed"
         mocked_execute.assert_awaited_once()
-        assert mocked_execute.await_args.kwargs["credentials"] == credentials
+        # El router construye las credenciales completas desde .env + frontend;
+        # solo verificamos username y password del frontend
+        assert captured_credentials["username"] == "sap-user"
+        assert captured_credentials["password"] == "not-a-real-password"
 
     def test_template_returns_xlsx_content_type(
         self, client: TestClient, valid_api_key: str

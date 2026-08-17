@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import threading
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -179,9 +180,42 @@ class AuditLogger:
         with self._lock:
             self._rotate_if_needed()
             assert self._current_file is not None  # _rotate_if_needed garantiza archivo abierto
-            line = json.dumps(log_data, ensure_ascii=False, default=str) + "\n"
+            line = json.dumps(self._sanitize(self._redact(log_data)), ensure_ascii=False, default=str) + "\n"
             self._current_file.write(line)
             self._current_file.flush()
+
+    @staticmethod
+    def _redact(value: Any) -> Any:
+        """Redacta secretos también dentro de mensajes y estructuras anidadas."""
+        if isinstance(value, dict):
+            return {key: ("[REDACTED]" if key.lower() in {"password", "api_key", "credentials", "secret"}
+                          else AuditLogger._redact(item)) for key, item in value.items()}
+        if isinstance(value, list):
+            return [AuditLogger._redact(item) for item in value]
+        if isinstance(value, str):
+            return re.sub(r"(?i)(password|api[-_ ]?key|secret)=([^,; ]+)", r"\1=[REDACTED]", value)
+        return value
+
+    @classmethod
+    def _sanitize(cls, value: Any) -> Any:
+        """Sanitiza secretos y mensajes de excepción en estructuras anidadas."""
+        if isinstance(value, dict):
+            return {
+                key: ("[REDACTED]" if key.lower() in {"password", "api_key", "credentials", "secret"}
+                      else cls._safe_message(item) if key.lower() in {"message", "exception_message"}
+                      else cls._sanitize(item))
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [cls._sanitize(item) for item in value]
+        return cls._safe_message(value) if isinstance(value, str) else value
+
+    @staticmethod
+    def _safe_message(message: Any) -> str:
+        text = str(message)
+        if any(token in text.lower() for token in ("password", "secret", "api-key", "api_key", "credential")):
+            return "[REDACTED]"
+        return text
 
     def log_execution(
         self,
@@ -196,6 +230,7 @@ class AuditLogger:
         rows_failed: int,
         errors: Optional[List[Dict[str, Any]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        operational_code: Optional[str] = None,
     ) -> None:
         """
         Registra un log de ejecución SAP.
@@ -221,7 +256,7 @@ class AuditLogger:
                         row=err.get("row", 0),
                         material=err.get("material", ""),
                         proveedor=err.get("proveedor", "N/A"),
-                        message=err.get("message", ""),
+                        message=self._safe_message(err.get("message", "")),
                     ).model_dump()
                 )
 
@@ -232,6 +267,7 @@ class AuditLogger:
             user_id=user_id,
             transaction=transaction,
             job_id=job_id,
+            operational_code=operational_code,
             status=LogStatus(status),
             duration_seconds=round(duration, 3),
             sap_login_success=sap_login_success,
@@ -267,7 +303,7 @@ class AuditLogger:
             user_id=user_id,
             status=LogStatus.SUCCESS if success else LogStatus.ERROR,
             ip_address=ip_address,
-            message=message or ("Autenticación exitosa" if success else "Autenticación fallida"),
+            message=self._safe_message(message or ("Autenticación exitosa" if success else "Autenticación fallida")),
         ).model_dump()
 
         self._write_log(log_data)
@@ -300,7 +336,7 @@ class AuditLogger:
             metadata={
                 "filename": filename,
                 "valid": valid,
-                "validations": validations or [],
+                "validations": self._sanitize(validations or []),
             },
         ).model_dump()
 
@@ -324,7 +360,7 @@ class AuditLogger:
         if exception:
             error_info = {
                 "exception_type": type(exception).__name__,
-                "exception_message": str(exception),
+                "exception_message": self._safe_message(getattr(exception, "public_message", "Error interno")),
             }
 
         log_data = AuditLogEntry(
@@ -332,7 +368,7 @@ class AuditLogger:
             level=LogLevel.ERROR,
             event_type="error",
             user_id="system",
-            message=message,
+            message=self._safe_message(message),
             metadata={
                 "context": context,
                 **error_info,

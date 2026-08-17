@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 # Credenciales SAP de prueba (mock)
 SAP_CREDENTIALS = {
     "system": "ERQ",
-    "mandt": "200",
+    "mandt": "300",
     "username": "test_user",
     "password": "test_pass",
     "language": "ES",

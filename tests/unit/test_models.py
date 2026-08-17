@@ -261,81 +261,33 @@ class TestCondicionesExecuteRequest:
     """Tests para el modelo CondicionesExecuteRequest."""
 
     def test_creation(self):
-        """Test: CondicionesExecuteRequest se crea con datos válidos."""
+        """Test: CondicionesExecuteRequest se crea con username y password."""
         request = CondicionesExecuteRequest(
-            system="ERQ",
-            mandt="200",
             username="test_user",
             password="test_pass",
-            language="ES",
         )
-        assert request.system == "ERQ"
-        assert request.mandt == "200"
         assert request.username == "test_user"
         assert request.password == "test_pass"
-        assert request.language == "ES"
-
-    def test_language_default_es(self):
-        """Test: language tiene valor por defecto 'ES'."""
-        request = CondicionesExecuteRequest(
-            system="ERQ",
-            mandt="200",
-            username="test_user",
-            password="test_pass",
-        )
-        assert request.language == "ES"
-
-    def test_requires_system(self):
-        """Test: system es obligatorio."""
-        with pytest.raises(ValidationError):
-            CondicionesExecuteRequest(
-                mandt="200",
-                username="test_user",
-                password="test_pass",
-            )
-
-    def test_requires_mandt(self):
-        """Test: mandt es obligatorio."""
-        with pytest.raises(ValidationError):
-            CondicionesExecuteRequest(
-                system="ERQ",
-                username="test_user",
-                password="test_pass",
-            )
 
     def test_requires_username(self):
         """Test: username es obligatorio."""
         with pytest.raises(ValidationError):
-            CondicionesExecuteRequest(
-                system="ERQ",
-                mandt="200",
-                password="test_pass",
-            )
+            CondicionesExecuteRequest(password="test_pass")
 
     def test_requires_password(self):
         """Test: password es obligatorio."""
         with pytest.raises(ValidationError):
-            CondicionesExecuteRequest(
-                system="ERQ",
-                mandt="200",
-                username="test_user",
-            )
+            CondicionesExecuteRequest(username="test_user")
 
     def test_model_dump(self):
         """Test: model_dump retorna diccionario correcto."""
         request = CondicionesExecuteRequest(
-            system="ERQ",
-            mandt="200",
             username="user",
             password="pass",
-            language="ES",
         )
         data = request.model_dump()
-        assert data["system"] == "ERQ"
-        assert data["mandt"] == "200"
         assert data["username"] == "user"
         assert data["password"] == "pass"
-        assert data["language"] == "ES"
 
 
 # ============================================================

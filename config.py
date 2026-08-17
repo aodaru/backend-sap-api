@@ -32,8 +32,16 @@ class Settings(BaseSettings):
 
     # SAP Configuration
     sap_system: str = "PRD"
-    sap_mandant: str = "100"
+    sap_mandant: str = "300"
     sap_lang: str = "ES"
+    sap_connection_name: str = ""
+    sap_session_index: int = 0
+    sap_integration_enabled: bool = False
+
+    # SAP GUI Lifecycle — ciclo completo como desktop
+    sap_logon_path: str = r"C:\Program Files (x86)\SAP\FrontEnd\SAPgui\saplogon.exe"
+    sap_username: str = ""
+    sap_password: str = ""
 
     # Servidor
     server_host: str = "0.0.0.0"
@@ -42,8 +50,10 @@ class Settings(BaseSettings):
 
     # Cola de peticiones SAP
     sap_execution_timeout: int = 120  # Timeout en segundos por ejecución
+    sap_queue_wait_timeout: int = 120  # Tiempo máximo esperando turno
     max_queue_size: int = 5  # Máximo de peticiones en cola
     max_retries: int = 2  # Reintentos en errores transitorios
+    sap_retry_backoff: int = 1
 
     # Logging y Auditoría
     log_dir: str = "logs"  # Directorio donde se almacenan los logs de auditoría

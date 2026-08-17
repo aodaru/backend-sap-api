@@ -20,14 +20,14 @@ class TestSettings:
                 api_keys="",
                 cors_origins="",
                 sap_system="PRD",
-                sap_mandant="100",
+                sap_mandant="300",
                 sap_lang="ES",
                 server_host="0.0.0.0",
                 server_port=8000,
                 debug=False,
             )
             assert settings.sap_system == "PRD"
-            assert settings.sap_mandant == "100"
+            assert settings.sap_mandant == "300"
             assert settings.sap_lang == "ES"
             assert settings.server_port == 8000
             assert settings.debug is False

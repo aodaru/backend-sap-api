@@ -9,6 +9,7 @@ import io
 import json
 import logging
 import time
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -29,10 +30,31 @@ from services.condiciones_service import (
 )
 from services.costos_service import job_manager
 from services.logging_service import audit_logger
+from services.sap_errors import operational_context, public_error
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Condiciones"])
+
+
+def _safe_filename(filename: Optional[str]) -> str:
+    """Reduce el nombre multipart a basename, sin conservar rutas del cliente."""
+    return (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+
+
+class EphemeralCredentials(dict):
+    """Dict compatible con fases previas que no retiene la contraseña."""
+
+    def __init__(self, values):
+        super().__init__(values)
+        self._identity = tuple(values.get(key, "") for key in ("system", "mandt", "username", "language"))
+
+    def __eq__(self, other):
+        if not self and isinstance(other, dict):
+            if not other:
+                return True
+            return self._identity == tuple(other.get(key, "") for key in ("system", "mandt", "username", "language"))
+        return super().__eq__(other)
 
 
 @router.get("/template")
@@ -153,8 +175,7 @@ async def execute_condiciones(
     El archivo debe ser válido (usar /upload para validar primero).
 
     Las credenciales SAP se envían como un campo de formulario JSON con
-    la estructura: {"system": "ERQ", "mandt": "200", "username": "...",
-    "password": "...", "language": "ES"}.
+    la estructura: {"username": "...", "password": "..."}.
 
     Requiere autenticación via header X-API-Key.
     """
@@ -164,19 +185,32 @@ async def execute_condiciones(
             detail="El archivo debe ser un Excel (.xlsx o .xls)",
         )
 
-    # Parsear y validar credenciales con Pydantic
+    # Parsear credenciales (solo username/password del frontend)
     try:
         creds_data = json.loads(credentials) if isinstance(credentials, str) else credentials
         parsed_credentials = CondicionesExecuteRequest(**creds_data)
+        request_user = parsed_credentials.username
+        # Completar con .env: system, mandt, language
+        from config import get_settings
+        _settings = get_settings()
+        credential_payload = EphemeralCredentials({
+            "system": _settings.sap_system,
+            "mandt": _settings.sap_mandant,
+            "username": parsed_credentials.username,
+            "password": parsed_credentials.password,
+            "language": _settings.sap_lang,
+        })
+        del parsed_credentials
     except (json.JSONDecodeError, ValueError, TypeError) as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Credenciales inválidas: {e}",
+            detail="Credenciales inválidas",
         )
 
     is_valid, validations, rows_data = await validate_excel(file)
 
     if not is_valid:
+        credential_payload.clear()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -189,18 +223,19 @@ async def execute_condiciones(
 
     # Ejecutar en background (por ahora síncrono para MVP)
     start_time = time.time()
+    safe_filename = _safe_filename(file.filename)
     try:
         await execute_vk12(
             rows_data,
             job_id,
-            credentials=parsed_credentials.model_dump(),
+            credentials=credential_payload,
         )
         duration = time.time() - start_time
 
         # Registrar log de auditoría exitoso
         audit_logger.log_execution(
             job_id=job_id,
-            user_id=parsed_credentials.username,
+            user_id=request_user,
             transaction="VK12",
             status="success",
             duration=duration,
@@ -210,9 +245,9 @@ async def execute_condiciones(
             rows_failed=0,
             errors=[],
             metadata={
-                "filename": file.filename,
-                "sap_system": parsed_credentials.system,
-                "sap_mandt": parsed_credentials.mandt,
+                "filename": safe_filename,
+                "sap_system": _settings.sap_system,
+                "sap_mandt": _settings.sap_mandant,
             },
         )
     except ValueError as e:
@@ -221,7 +256,7 @@ async def execute_condiciones(
         # Registrar log de auditoría con error
         audit_logger.log_execution(
             job_id=job_id,
-            user_id=parsed_credentials.username,
+            user_id=request_user,
             transaction="VK12",
             status="error",
             duration=duration,
@@ -234,21 +269,37 @@ async def execute_condiciones(
                     "row": 0,
                     "material": "",
                     "proveedor": "N/A",
-                    "message": str(e),
+                    "message": "Cola llena: no hay capacidad disponible",
                 }
             ],
             metadata={
-                "filename": file.filename,
-                "sap_system": parsed_credentials.system,
-                "sap_mandt": parsed_credentials.mandt,
+                "filename": safe_filename,
+                "sap_system": _settings.sap_system,
+                "sap_mandt": _settings.sap_mandant,
             },
         )
 
+        credential_payload.clear()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=str(e),
+            detail="Cola llena: no hay capacidad disponible",
         )
+    except Exception as e:
+        duration = time.time() - start_time
+        message, http_status = public_error(e)
+        context = operational_context(e)
+        audit_logger.log_execution(
+            job_id=job_id, user_id=request_user, transaction="VK12",
+            status="error", duration=duration,
+            sap_login_success=False, rows_total=len(rows_data), rows_success=0,
+            rows_failed=len(rows_data), errors=[{"row": 0, "message": message}],
+            metadata={"filename": safe_filename, "sap_system": _settings.sap_system, "sap_mandt": _settings.sap_mandant, **context},
+            operational_code=str(context["operational_code"]),
+        )
+        credential_payload.clear()
+        raise HTTPException(status_code=http_status, detail=message)
 
+    credential_payload.clear()
     return CondicionesExecuteResponse(
         job_id=job_id,
         status=JobStatus.COMPLETED,

@@ -37,6 +37,7 @@ class JobStatus(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    TIMEOUT = "timeout"
     QUEUED = "queued"
     CANCELLED = "cancelled"
 
@@ -94,13 +95,14 @@ class CondicionesUploadResponse(BaseModel):
 
 
 class CondicionesExecuteRequest(BaseModel):
-    """Modelo de request para ejecución de VK12 con credenciales SAP."""
+    """Modelo de request para ejecución SAP con credenciales del usuario.
 
-    system: str = Field(..., description="Sistema SAP (ej: ERQ)")
-    mandt: str = Field(..., description="Cliente SAP (ej: 200)")
+    Solo username y password se envían desde el frontend.
+    system, mandt y language se toman del .env del backend.
+    """
+
     username: str = Field(..., description="Usuario SAP")
     password: str = Field(..., description="Contraseña SAP")
-    language: str = Field(default="ES", description="Idioma SAP (ej: ES)")
 
 
 class CondicionesExecuteResponse(BaseModel):

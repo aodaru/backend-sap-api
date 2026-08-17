@@ -9,6 +9,7 @@ Verifica el correcto funcionamiento de:
 """
 
 import asyncio
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -403,6 +404,11 @@ class TestQueueEndpoints:
         response = client.post(
             "/api/costos/execute",
             headers={"X-API-Key": valid_api_key},
+            data={
+                "credentials": json.dumps(
+                    {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+                )
+            },
             files={
                 "file": (
                     "test.xlsx",
@@ -428,7 +434,7 @@ class TestQueueEndpoints:
 
         credentials = json.dumps({
             "system": "ERQ",
-            "mandt": "200",
+            "mandt": "300",
             "username": "test_user",
             "password": "test_pass",
             "language": "ES",
@@ -463,6 +469,11 @@ class TestQueueEndpoints:
         response = client.post(
             "/api/costos/execute",
             headers={"X-API-Key": valid_api_key},
+            data={
+                "credentials": json.dumps(
+                    {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+                )
+            },
             files={
                 "file": (
                     "test.xlsx",
@@ -494,6 +505,11 @@ class TestQueueEndpoints:
         client.post(
             "/api/costos/execute",
             headers={"X-API-Key": valid_api_key},
+            data={
+                "credentials": json.dumps(
+                    {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+                )
+            },
             files={
                 "file": (
                     "test.xlsx",
@@ -557,6 +573,11 @@ class TestQueueFullHTTP:
             mock_validate.return_value = (True, [], [{"Material": "MAT001"}])
             response = client.post(
                 "/api/costos/execute",
+                data={
+                    "credentials": json.dumps(
+                        {"system": "PRD", "mandt": "300", "username": "test_user", "password": "test_pass", "language": "ES"}
+                    )
+                },
                 files={
                     "file": (
                         "test.xlsx",
@@ -595,7 +616,7 @@ class TestQueueFullHTTP:
         # La 6ta petición vía endpoint debería retornar 429
         credentials = json.dumps({
             "system": "ERQ",
-            "mandt": "200",
+            "mandt": "300",
             "username": "test_user",
             "password": "test_pass",
             "language": "ES",

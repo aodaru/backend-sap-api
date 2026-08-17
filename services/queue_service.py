@@ -24,6 +24,7 @@ from models.queue_models import (
     QueueStats,
     QueueStatus,
 )
+from services.sap_errors import QueueWaitTimeoutError, safe_exception
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,10 @@ class RequestQueue:
         self._history: Dict[str, QueueRequest] = {}
         # Lock para operaciones thread-safe
         self._lock = asyncio.Lock()
+        self._job_futures: Dict[str, asyncio.Future[Any]] = {}
+        self._job_callbacks: Dict[str, Callable[[], Coroutine[Any, Any, Any]]] = {}
+        self._worker_task: Optional[asyncio.Task[Any]] = None
+        self._worker_has_processed = False
 
     @property
     def max_size(self) -> int:
@@ -112,6 +117,92 @@ class RequestQueue:
             )
 
             return position
+
+    async def run_job(
+        self,
+        job_id: str,
+        transaction: str,
+        callback: Callable[[], Coroutine[Any, Any, Any]],
+        user_id: str = "system",
+    ) -> Any:
+        """Encola y espera un job procesado por el único consumidor FIFO."""
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        self._job_futures[job_id] = future
+        self._job_callbacks[job_id] = callback
+        try:
+            await self.enqueue(job_id, transaction, user_id)
+            if self._worker_task is None or self._worker_task.done():
+                self._worker_task = asyncio.create_task(self._worker_loop())
+            return await future
+        finally:
+            self._job_futures.pop(job_id, None)
+            self._job_callbacks.pop(job_id, None)
+
+    async def _worker_loop(self) -> None:
+        """Consume estrictamente una entrada a la vez y conserva estados."""
+        while True:
+            async with self._lock:
+                request = next((r for r in self._queue if r.status == QueueJobStatus.QUEUED), None)
+                if request is None:
+                    self._worker_has_processed = False
+                    return
+                wait_seconds = (datetime.now(timezone.utc) - request.queued_at).total_seconds()
+                if wait_seconds > self._get_queue_wait_timeout() and self._worker_has_processed:
+                    job_id = request.job_id
+                    request.status = QueueJobStatus.TIMEOUT
+                    request.completed_at = datetime.now(timezone.utc)
+                    request.error_message = QueueWaitTimeoutError.public_message
+                    self._queue.remove(request)
+                    self._update_positions()
+                    future = self._job_futures.get(job_id)
+                    if future and not future.done():
+                        future.set_exception(QueueWaitTimeoutError())
+                    continue
+                request.status = QueueJobStatus.PROCESSING
+                request.started_at = datetime.now(timezone.utc)
+                request.position = 0
+                self._update_positions()
+                callback = self._job_callbacks.get(request.job_id)
+                future = self._job_futures.get(request.job_id)
+            if callback is None or future is None:
+                await self.mark_failed(request.job_id, "Job sin callback de worker")
+                continue
+            try:
+                result = await asyncio.wait_for(callback(), timeout=self._execution_timeout)
+                await self.mark_completed(request.job_id, result)
+                self._worker_has_processed = True
+                if not future.done():
+                    future.set_result(result)
+            except asyncio.TimeoutError:
+                await self.mark_timeout(request.job_id, "La ejecución SAP excedió el tiempo límite")
+                self._worker_has_processed = True
+                if not future.done():
+                    future.set_exception(TimeoutError("La ejecución SAP excedió el tiempo límite"))
+            except Exception as exc:
+                safe_exc = safe_exception(exc)
+                if getattr(safe_exc, "code", "") in {"execution_timeout", "queue_wait_timeout"}:
+                    await self.mark_timeout(request.job_id, self._safe_error_message(safe_exc))
+                else:
+                    await self.mark_failed(request.job_id, self._safe_error_message(safe_exc))
+                self._worker_has_processed = True
+                if not future.done():
+                    future.set_exception(safe_exc)
+
+    def _get_queue_wait_timeout(self) -> int:
+        return int(getattr(get_settings(), "sap_queue_wait_timeout", self._execution_timeout))
+
+    @staticmethod
+    def _safe_error_message(error: Exception) -> str:
+        return getattr(error, "public_message", "No se pudo completar el job SAP")
+
+    @staticmethod
+    def _safe_exception(error: Exception) -> Exception:
+        """Conserva errores no sensibles por compatibilidad, nunca secretos."""
+        text = str(error).lower()
+        if any(token in text for token in ("password", "secret", "api-key", "api_key", "credential", "token")):
+            return Exception("No se pudo completar el job SAP")
+        return error
 
     async def dequeue(self) -> Optional[QueueRequest]:
         """
@@ -269,6 +360,10 @@ class RequestQueue:
                 if r.status == QueueJobStatus.FAILED
                 and jid not in active_ids
             )
+            timeout = sum(
+                1 for jid, r in self._history.items()
+                if r.status == QueueJobStatus.TIMEOUT and jid not in active_ids
+            )
             cancelled = sum(
                 1
                 for jid, r in self._history.items()
@@ -281,6 +376,7 @@ class RequestQueue:
                 total_processing=processing,
                 total_completed=completed,
                 total_failed=failed,
+                total_timeout=timeout,
                 total_cancelled=cancelled,
                 max_queue_size=self._max_size,
             )
@@ -325,12 +421,24 @@ class RequestQueue:
             if job_id in self._history:
                 self._history[job_id].status = QueueJobStatus.FAILED
                 self._history[job_id].completed_at = datetime.now(timezone.utc)
-                self._history[job_id].error_message = error_message
+                self._history[job_id].error_message = self._safe_error_message(ValueError(error_message))
                 self._history[job_id].position = 0
 
             self._update_positions()
 
-            logger.error("Petición fallida: %s - %s", job_id, error_message)
+            logger.error("Petición fallida: %s - %s", job_id, self._safe_error_message(ValueError(error_message)))
+
+    async def mark_timeout(self, job_id: str, error_message: str) -> None:
+        """Marca un job agotado sin confundirlo con un fallo de negocio."""
+        async with self._lock:
+            self._queue = [r for r in self._queue if r.job_id != job_id]
+            if job_id in self._history:
+                request = self._history[job_id]
+                request.status = QueueJobStatus.TIMEOUT
+                request.completed_at = datetime.now(timezone.utc)
+                request.error_message = self._safe_error_message(TimeoutError(error_message))
+                request.position = 0
+            self._update_positions()
 
     async def process_with_retries(
         self,
@@ -377,34 +485,28 @@ class RequestQueue:
             except asyncio.TimeoutError as e:
                 last_error = e
                 logger.warning(
-                    "Timeout en petición %s (intento %d/%d): %s",
+                    "Timeout en petición %s (intento %d/%d)",
                     job_id,
                     attempt + 1,
                     self._max_retries + 1,
-                    str(e),
                 )
 
             except TRANSIENT_ERRORS as e:
                 last_error = e
                 logger.warning(
-                    "Error transitorio en petición %s (intento %d/%d): %s",
+                    "Error transitorio en petición %s (intento %d/%d)",
                     job_id,
                     attempt + 1,
                     self._max_retries + 1,
-                    str(e),
                 )
 
             except Exception as e:
                 # Error de negocio - no reintentar
-                logger.error(
-                    "Error de negocio en petición %s: %s",
-                    job_id,
-                    str(e),
-                )
-                raise
+                logger.error("Error de negocio en petición %s", job_id)
+                raise self._safe_exception(e)
 
         # Agotados los reintentos
-        error_msg = f"Agotados los reintentos ({self._max_retries}): {last_error}"
+        error_msg = f"Agotados los reintentos ({self._max_retries})"
         logger.error("Petición %s fallida definitivamente: %s", job_id, error_msg)
         raise Exception(error_msg)
 
@@ -421,6 +523,7 @@ class RequestQueue:
         async with self._lock:
             self._queue.clear()
             self._history.clear()
+            self._worker_has_processed = False
             logger.info("Cola de peticiones limpiada")
 
 
