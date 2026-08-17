@@ -175,8 +175,7 @@ async def execute_condiciones(
     El archivo debe ser válido (usar /upload para validar primero).
 
     Las credenciales SAP se envían como un campo de formulario JSON con
-    la estructura: {"system": "ERQ", "mandt": "300", "username": "...",
-    "password": "...", "language": "ES"}.
+    la estructura: {"username": "...", "password": "..."}.
 
     Requiere autenticación via header X-API-Key.
     """
@@ -186,14 +185,21 @@ async def execute_condiciones(
             detail="El archivo debe ser un Excel (.xlsx o .xls)",
         )
 
-    # Parsear y validar credenciales con Pydantic
+    # Parsear credenciales (solo username/password del frontend)
     try:
         creds_data = json.loads(credentials) if isinstance(credentials, str) else credentials
         parsed_credentials = CondicionesExecuteRequest(**creds_data)
-        credential_payload = EphemeralCredentials(parsed_credentials.model_dump())
         request_user = parsed_credentials.username
-        request_system = parsed_credentials.system
-        request_mandt = parsed_credentials.mandt
+        # Completar con .env: system, mandt, language
+        from config import get_settings
+        _settings = get_settings()
+        credential_payload = EphemeralCredentials({
+            "system": _settings.sap_system,
+            "mandt": _settings.sap_mandant,
+            "username": parsed_credentials.username,
+            "password": parsed_credentials.password,
+            "language": _settings.sap_lang,
+        })
         del parsed_credentials
     except (json.JSONDecodeError, ValueError, TypeError) as e:
         raise HTTPException(
@@ -240,8 +246,8 @@ async def execute_condiciones(
             errors=[],
             metadata={
                 "filename": safe_filename,
-                "sap_system": request_system,
-                "sap_mandt": request_mandt,
+                "sap_system": _settings.sap_system,
+                "sap_mandt": _settings.sap_mandant,
             },
         )
     except ValueError as e:
@@ -268,8 +274,8 @@ async def execute_condiciones(
             ],
             metadata={
                 "filename": safe_filename,
-                "sap_system": request_system,
-                "sap_mandt": request_mandt,
+                "sap_system": _settings.sap_system,
+                "sap_mandt": _settings.sap_mandant,
             },
         )
 
@@ -287,7 +293,7 @@ async def execute_condiciones(
             status="error", duration=duration,
             sap_login_success=False, rows_total=len(rows_data), rows_success=0,
             rows_failed=len(rows_data), errors=[{"row": 0, "message": message}],
-            metadata={"filename": safe_filename, "sap_system": request_system, "sap_mandt": request_mandt, **context},
+            metadata={"filename": safe_filename, "sap_system": _settings.sap_system, "sap_mandt": _settings.sap_mandant, **context},
             operational_code=str(context["operational_code"]),
         )
         credential_payload.clear()

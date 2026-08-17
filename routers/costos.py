@@ -165,8 +165,7 @@ async def execute_costos(
     El archivo debe ser válido (usar /upload para validar primero).
 
     Las credenciales SAP se envían como un campo de formulario JSON con
-    la estructura: {"system": "ERQ", "mandt": "300", "username": "...",
-    "password": "...", "language": "ES"}.
+    la estructura: {"username": "...", "password": "..."}.
 
     Requiere autenticación via header X-API-Key.
     """
@@ -176,12 +175,21 @@ async def execute_costos(
             detail="El archivo debe ser un Excel (.xlsx o .xls)",
         )
 
-    # Parsear y validar credenciales con Pydantic
+    # Parsear credenciales (solo username/password del frontend)
     try:
         creds_data = json.loads(credentials) if isinstance(credentials, str) else credentials
         parsed_credentials = CondicionesExecuteRequest(**creds_data)
-        credential_payload = EphemeralCredentials(parsed_credentials.model_dump())
         request_user = parsed_credentials.username
+        # Completar con .env: system, mandt, language
+        from config import get_settings
+        _settings = get_settings()
+        credential_payload = EphemeralCredentials({
+            "system": _settings.sap_system,
+            "mandt": _settings.sap_mandant,
+            "username": parsed_credentials.username,
+            "password": parsed_credentials.password,
+            "language": _settings.sap_lang,
+        })
         del parsed_credentials
     except (json.JSONDecodeError, ValueError, TypeError) as e:
         raise HTTPException(

@@ -49,8 +49,8 @@ class SapTransactionExecutor:
         if not getattr(settings, "sap_integration_enabled", False):
             raise SapIntegrationDisabledError()
         if transaction.upper() == "VK12":
-            if not credentials or credentials.get("mandt") != "300":
-                raise SapBusinessError("Mandante SAP no permitido")
+            if not credentials:
+                raise SapBusinessError("Credenciales SAP requeridas para VK12")
         async with self._lock:
             for attempt in range(settings.max_retries + 1):
                 session = None
